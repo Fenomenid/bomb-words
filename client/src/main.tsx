@@ -305,6 +305,8 @@ function App() {
 function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boolean; canStartGame: boolean }) {
   const [draftSettings, setDraftSettings] = useState(() => settingsToDraft(room.settings));
   const [customWordsText, setCustomWordsText] = useState(() => (room.customWords ?? []).join("\n"));
+  const [customWordsSaveRequested, setCustomWordsSaveRequested] = useState(false);
+  const [customWordsSaved, setCustomWordsSaved] = useState(false);
 
   useEffect(() => {
     setDraftSettings(settingsToDraft(room.settings));
@@ -313,8 +315,20 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
   useEffect(() => {
     if (room.customWords) {
       setCustomWordsText(room.customWords.join("\n"));
+      if (customWordsSaveRequested) {
+        setCustomWordsSaved(true);
+        setCustomWordsSaveRequested(false);
+      }
     }
-  }, [room.customWords]);
+  }, [customWordsSaveRequested, room.customWords]);
+
+  useEffect(() => {
+    if (!customWordsSaved) {
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => setCustomWordsSaved(false), 2400);
+    return () => window.clearTimeout(timeout);
+  }, [customWordsSaved]);
 
   function updateSetting(key: keyof RoomSnapshot["settings"], value: string) {
     const nextValue = key === "endCondition" || key === "difficulty" ? value : Number(value);
@@ -348,6 +362,8 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
   }
 
   function saveCustomWords() {
+    setCustomWordsSaveRequested(true);
+    setCustomWordsSaved(false);
     socket.emit("settings:customWords", { roomId: room.id, wordsText: customWordsText });
   }
 
@@ -513,8 +529,19 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
               />
               <button className="secondary" type="button" onClick={saveCustomWords}>
                 <Save size={18} />
-                Сохранить словарь
+                {customWordsSaved ? "Сохранено" : "Сохранить словарь"}
               </button>
+              {customWordsSaved && (
+                <p className="notice ready-notice">
+                  <span className="ready-icon" aria-hidden="true">
+                    <Check size={18} />
+                  </span>
+                  <span>Словарь сохранен и используется в игре. Сейчас слов: {room.customWordCount}.</span>
+                </p>
+              )}
+              {!customWordsSaved && room.customWordCount >= 10 && (
+                <p className="notice">Используется свой словарь. Сейчас слов: {room.customWordCount}.</p>
+              )}
             </>
           ) : (
             <p className="notice">Хост загрузит свой словарь перед стартом.</p>
