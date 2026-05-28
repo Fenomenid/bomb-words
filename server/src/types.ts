@@ -1,6 +1,7 @@
 export type RoomPhase = "lobby" | "mine_submission" | "explaining" | "round_result" | "game_result";
 export type RoundStatus = "waiting_mines" | "active" | "success" | "failed" | "skipped" | "timeout";
 export type EndCondition = "target_score" | "rounds";
+export type Difficulty = "easy" | "medium" | "hard";
 
 export type Player = {
   id: string;
@@ -52,6 +53,7 @@ export type Room = {
     endCondition: EndCondition;
     targetScore: number;
     maxRounds: number;
+    difficulty: Difficulty;
   };
 };
 

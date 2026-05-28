@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Mine, Player, PublicMine, Room, RoomSnapshot, RoundStatus } from "./types.js";
-import { WORDS } from "./words.js";
+import { WORD_DICTIONARIES } from "./words.js";
 
 const MIN_PLAYERS = 3;
 
@@ -30,6 +30,7 @@ export class RoomManager {
         endCondition: "target_score",
         targetScore: 10,
         maxRounds: 10,
+        difficulty: "easy",
       },
     };
 
@@ -123,6 +124,7 @@ export class RoomManager {
       endCondition: settings.endCondition === "rounds" ? "rounds" : "target_score",
       targetScore: clampInt(settings.targetScore, room.settings.targetScore, 1, 100),
       maxRounds: clampInt(settings.maxRounds, room.settings.maxRounds, 1, 100),
+      difficulty: isDifficulty(settings.difficulty) ? settings.difficulty : room.settings.difficulty,
     };
     return room;
   }
@@ -154,6 +156,34 @@ export class RoomManager {
     }
 
     round.mines.push({ word: normalized, authorPlayerId: socketId });
+    return room;
+  }
+
+  updateMine(roomId: string, socketId: string, oldWord: string, newWord: string): Room {
+    const room = this.getRoom(roomId);
+    const round = this.requireRound(room);
+    if (room.phase !== "mine_submission" || round.status !== "waiting_mines") {
+      throw new GameError("Мины можно редактировать только до объяснения");
+    }
+
+    const oldNormalized = normalizeMine(oldWord);
+    const newNormalized = normalizeMine(newWord);
+    if (!newNormalized) {
+      throw new GameError("Мина не может быть пустой");
+    }
+
+    const mine = round.mines.find((candidate) => candidate.word === oldNormalized);
+    if (!mine) {
+      throw new GameError("Мина не найдена");
+    }
+    if (mine.authorPlayerId !== socketId) {
+      throw new GameError("Можно редактировать только свои мины");
+    }
+    if (oldNormalized !== newNormalized && round.mines.some((candidate) => candidate.word === newNormalized)) {
+      throw new GameError("Такая мина уже есть");
+    }
+
+    mine.word = newNormalized;
     return room;
   }
 
@@ -242,7 +272,7 @@ export class RoomManager {
 
   completeSuccess(roomId: string, socketId: string): Room {
     const room = this.getRoom(roomId);
-    this.assertCanControlActiveRound(room, socketId);
+    this.assertCanConfirmSuccess(room, socketId);
     this.finishRound(room, "success");
     return room;
   }
@@ -367,11 +397,12 @@ export class RoomManager {
   }
 
   private pickWord(room: Room): string {
-    if (room.usedWords.length >= WORDS.length) {
+    const words = WORD_DICTIONARIES[room.settings.difficulty];
+    if (room.usedWords.length >= words.length) {
       room.usedWords = [];
     }
 
-    const availableWords = WORDS.filter((word) => !room.usedWords.includes(word));
+    const availableWords = words.filter((word) => !room.usedWords.includes(word));
     const word = availableWords[Math.floor(Math.random() * availableWords.length)];
     room.usedWords.push(word);
     return word;
@@ -427,6 +458,20 @@ export class RoomManager {
     }
   }
 
+  private assertCanConfirmSuccess(room: Room, socketId: string): void {
+    const round = this.requireRound(room);
+    if (room.phase !== "explaining" || round.status !== "active") {
+      throw new GameError("Раунд сейчас не активен");
+    }
+    const player = room.players.find((candidate) => candidate.id === socketId);
+    if (!player) {
+      throw new GameError("Игрок не найден");
+    }
+    if (player.id === round.explainerId) {
+      throw new GameError("Объясняющий не подтверждает угадывание");
+    }
+  }
+
   private assertCanMarkMine(room: Room, socketId: string): void {
     const round = this.requireRound(room);
     if (room.phase !== "explaining" || round.status !== "active") {
@@ -446,6 +491,19 @@ export class RoomManager {
     const triggeredCount = round.triggeredMines.length;
     round.scoreDeltas = [];
 
+    if (requestedStatus === "success") {
+      const explainer = room.players.find((player) => player.id === round.explainerId);
+      if (explainer) {
+        explainer.score += 1;
+        round.scoreDeltas.push({
+          playerId: explainer.id,
+          playerName: explainer.name,
+          delta: 1,
+          reason: "слово угадали",
+        });
+      }
+    }
+
     if (triggeredCount > 0) {
       round.status = "failed";
       for (const playerId of [round.explainerId, round.guesserId]) {
@@ -463,18 +521,6 @@ export class RoomManager {
       }
     } else {
       round.status = requestedStatus;
-      if (requestedStatus === "success") {
-        const explainer = room.players.find((player) => player.id === round.explainerId);
-        if (explainer) {
-          explainer.score += 1;
-          round.scoreDeltas.push({
-            playerId: explainer.id,
-            playerName: explainer.name,
-            delta: 1,
-            reason: "слово угадали",
-          });
-        }
-      }
     }
 
     room.phase = "round_result";
@@ -549,4 +595,8 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
     return fallback;
   }
   return Math.min(max, Math.max(min, Math.round(numberValue)));
+}
+
+function isDifficulty(value: unknown): value is Room["settings"]["difficulty"] {
+  return value === "easy" || value === "medium" || value === "hard";
 }

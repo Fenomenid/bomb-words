@@ -72,6 +72,10 @@ io.on("connection", (socket) => {
     handle(socket.id, () => emitRoom(rooms.addMine(roomId, socket.id, word)));
   });
 
+  socket.on("mine:update", ({ roomId, oldWord, newWord }: { roomId: string; oldWord: string; newWord: string }) => {
+    handle(socket.id, () => emitRoom(rooms.updateMine(roomId, socket.id, oldWord, newWord)));
+  });
+
   socket.on("round:start", ({ roomId }: { roomId: string }) => {
     handle(socket.id, () => {
       const room = rooms.startExplaining(roomId, socket.id);

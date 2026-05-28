@@ -1,10 +1,17 @@
 :root {
   color: #18202f;
   background: #f5f7fb;
+  color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+:root[data-theme="dark"] {
+  color: #e7edf6;
+  background: #101722;
+  color-scheme: dark;
 }
 
 * {
@@ -15,6 +22,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: inherit;
+  background: inherit;
 }
 
 button,
@@ -67,6 +76,14 @@ button:disabled {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 h1,
@@ -290,10 +307,49 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
-.mine-chip span {
+.mine-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font-weight: inherit;
+}
+
+.mine-word:disabled {
+  opacity: 1;
+}
+
+.mine-word span {
   color: #68768b;
   font-size: 12px;
   font-weight: 700;
+}
+
+.mine-edit-button,
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #203449;
+  background: #edf1f6;
+  border: 1px solid #d2dce8;
+}
+
+.mine-edit {
+  display: inline-grid;
+  grid-template-columns: minmax(120px, 190px) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.mine-edit input {
+  min-height: 38px;
+  padding: 8px 10px;
 }
 
 .mine-chip.clickable {
@@ -308,7 +364,7 @@ select:focus {
   border-color: #9b1c31;
 }
 
-.mine-chip.triggered span {
+.mine-chip.triggered .mine-word span {
   color: #ffe1e6;
 }
 
@@ -450,6 +506,159 @@ select:focus {
   border: 1px solid #dce3ee;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(10, 16, 25, 0.48);
+}
+
+.rules-modal {
+  width: min(620px, 100%);
+  max-height: min(720px, 92vh);
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  color: #18202f;
+  background: #ffffff;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  box-shadow: 0 24px 60px rgba(10, 16, 25, 0.22);
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.rules-list {
+  display: grid;
+  gap: 10px;
+  color: #405168;
+  line-height: 1.5;
+}
+
+:root[data-theme="dark"] .auth-panel,
+:root[data-theme="dark"] .game-panel,
+:root[data-theme="dark"] .sidebar {
+  background: #151f2d;
+  border-color: #2a3a50;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="dark"] .eyebrow,
+:root[data-theme="dark"] .muted,
+:root[data-theme="dark"] .player-row span,
+:root[data-theme="dark"] .score-delta small {
+  color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .notice {
+  color: #d8eef8;
+  background: #173447;
+  border-color: #2d607d;
+}
+
+:root[data-theme="dark"] .error {
+  color: #ffdbe1;
+  background: #4a1420;
+  border-color: #8f2d40;
+}
+
+:root[data-theme="dark"] .player-row,
+:root[data-theme="dark"] .score-delta,
+:root[data-theme="dark"] .final-row,
+:root[data-theme="dark"] .mine-chip {
+  color: #e7edf6;
+  background: #111a27;
+  border-color: #2a3a50;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select {
+  color: #e7edf6;
+  background: #101722;
+  border-color: #31435b;
+}
+
+:root[data-theme="dark"] .field {
+  color: #c7d5e7;
+}
+
+:root[data-theme="dark"] .secondary,
+:root[data-theme="dark"] .mine-edit-button,
+:root[data-theme="dark"] .icon-button {
+  color: #dbe7f6;
+  background: #203044;
+  border-color: #334860;
+}
+
+:root[data-theme="dark"] .primary {
+  background: #2f8eb7;
+}
+
+:root[data-theme="dark"] .success {
+  background: #39985f;
+}
+
+:root[data-theme="dark"] .timer {
+  color: #dff4ff;
+  background: #173447;
+  border-color: #2d607d;
+}
+
+:root[data-theme="dark"] .mine-chip.clickable {
+  color: #ffdbe1;
+  background: #3b1620;
+  border-color: #793044;
+}
+
+:root[data-theme="dark"] .mine-word span {
+  color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .player-name svg {
+  color: #5fc4ef;
+}
+
+:root[data-theme="dark"] .podium-place {
+  background: #111a27;
+  border-color: #2a3a50;
+}
+
+:root[data-theme="dark"] .rules-modal {
+  color: #e7edf6;
+  background: #151f2d;
+  border-color: #2a3a50;
+}
+
+:root[data-theme="dark"] .rules-list {
+  color: #c7d5e7;
+}
+
+:root[data-theme="dark"] .place-1 {
+  color: #fff0b8;
+  background: #3a2c0c;
+  border-color: #8c6b18;
+}
+
+:root[data-theme="dark"] .place-2 {
+  color: #d7e6f7;
+  background: #202d3e;
+}
+
+:root[data-theme="dark"] .place-3 {
+  color: #ffd6bd;
+  background: #3a2317;
+  border-color: #865437;
 }
 
 @keyframes podium-pop {

@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { io } from "socket.io-client";
-import { Check, Copy, Crown, Flag, KeyRound, LogIn, Medal, Pause, Play, Plus, RotateCcw, SkipForward, Timer, Trophy, Users } from "lucide-react";
+import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, SkipForward, Sun, Timer, Trophy, Users, X } from "lucide-react";
 import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
@@ -41,6 +41,7 @@ type RoomSnapshot = {
     endCondition: "target_score" | "rounds";
     targetScore: number;
     maxRounds: number;
+    difficulty: "easy" | "medium" | "hard";
   };
   finalStandings?: Player[];
   inviteUrl?: string;
@@ -73,6 +74,10 @@ function App() {
   const [playerName, setPlayerName] = useState(localStorage.getItem("playerName") ?? "");
   const [mineWord, setMineWord] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(
+    () => (localStorage.getItem("theme") === "dark" ? "dark" : "light"),
+  );
 
   const roomIdFromUrl = useMemo(() => {
     const match = window.location.pathname.match(/\/room\/([A-Za-z0-9]+)/);
@@ -85,6 +90,11 @@ function App() {
   const isExplainer = Boolean(round && room?.selfId === round.explainerId);
   const isGuesser = Boolean(round && room?.selfId === round.guesserId);
   const canStartGame = Boolean(room && isHost && room.players.length >= 3);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     socket.on("room", (snapshot: RoomSnapshot) => {
@@ -131,6 +141,10 @@ function App() {
     window.setTimeout(() => setCopied(false), 1400);
   }
 
+  function toggleTheme() {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
+  }
+
   if (!room) {
     return (
       <main className="page auth-page">
@@ -155,7 +169,16 @@ function App() {
               Создать комнату
             </button>
           )}
+          <button className="secondary" onClick={toggleTheme}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === "dark" ? "Светлая тема" : "Темная тема"}
+          </button>
+          <button className="secondary" onClick={() => setShowRules(true)}>
+            <HelpCircle size={18} />
+            Правила
+          </button>
           {error && <p className="error">{error}</p>}
+          {showRules && <RulesModal onClose={() => setShowRules(false)} />}
         </section>
       </main>
     );
@@ -168,10 +191,20 @@ function App() {
           <p className="eyebrow">Комната {room.id}</p>
           <h1>Слова-мины</h1>
         </div>
-        <button className="secondary icon-text" onClick={copyInvite}>
-          <Copy size={18} />
-          {copied ? "Скопировано" : "Пригласить"}
-        </button>
+        <div className="top-actions">
+          <button className="secondary icon-text" onClick={toggleTheme}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            {theme === "dark" ? "Светлая" : "Темная"}
+          </button>
+          <button className="secondary icon-text" onClick={copyInvite}>
+            <Copy size={18} />
+            {copied ? "Скопировано" : "Пригласить"}
+          </button>
+          <button className="secondary icon-text" onClick={() => setShowRules(true)}>
+            <HelpCircle size={18} />
+            Правила
+          </button>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}
@@ -222,13 +255,14 @@ function App() {
           {room.phase === "game_result" && <GameResult room={room} isHost={isHost} />}
         </section>
       </div>
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </main>
   );
 }
 
 function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boolean; canStartGame: boolean }) {
   function updateSetting(key: keyof RoomSnapshot["settings"], value: string) {
-    const nextValue = key === "endCondition" ? value : Number(value);
+    const nextValue = key === "endCondition" || key === "difficulty" ? value : Number(value);
     socket.emit("settings:update", {
       roomId: room.id,
       settings: {
@@ -244,6 +278,18 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
       <h2>Ожидание игроков</h2>
       <p className="muted">Минимум 3 игрока. Сейчас в комнате: {room.players.length}.</p>
       <div className="settings-grid">
+        <label className="field">
+          <span>Сложность слов</span>
+          <select
+            disabled={!isHost}
+            value={room.settings.difficulty}
+            onChange={(event) => updateSetting("difficulty", event.target.value)}
+          >
+            <option value="easy">Легкий</option>
+            <option value="medium">Средний</option>
+            <option value="hard">Нереальный</option>
+          </select>
+        </label>
         <label className="field">
           <span>Финал игры</span>
           <select
@@ -382,7 +428,7 @@ function MineSubmission({
               Добавить
             </button>
           </form>
-          <MineList mines={round.mines ?? []} />
+          <MineList mines={round.mines ?? []} editable roomId={room.id} selfId={room.selfId} />
         </>
       )}
 
@@ -399,7 +445,9 @@ function MineSubmission({
 function Explaining({ room, isExplainer, isGuesser, isHost }: { room: RoomSnapshot; isExplainer: boolean; isGuesser: boolean; isHost: boolean }) {
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
-  const canControl = isHost || isGuesser || isExplainer;
+  const canConfirmSuccess = !isExplainer;
+  const canSkip = isHost || isGuesser || isExplainer;
+  useTimerWarning(secondsLeft, room.phase, round.isTimerPaused);
 
   return (
     <div className="stage">
@@ -420,12 +468,14 @@ function Explaining({ room, isExplainer, isGuesser, isHost }: { room: RoomSnapsh
       )}
 
       <div className="actions">
-        {canControl && (
+        {canConfirmSuccess && (
+          <button className="success" onClick={() => socket.emit("round:success", { roomId: room.id })}>
+            <Check size={18} />
+            Угадали
+          </button>
+        )}
+        {canSkip && (
           <>
-            <button className="success" onClick={() => socket.emit("round:success", { roomId: room.id })}>
-              <Check size={18} />
-              Угадали
-            </button>
             <button className="secondary" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
               <SkipForward size={18} />
               Скип
@@ -550,15 +600,42 @@ function TimerControls({ room }: { room: RoomSnapshot }) {
   );
 }
 
+function RulesModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Правила игры">
+      <section className="rules-modal">
+        <div className="modal-title">
+          <h2>Правила</h2>
+          <button className="icon-button" type="button" aria-label="Закрыть правила" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="rules-list">
+          <p>Хост создает комнату, выбирает сложность, таймеры, количество мин и условие финала.</p>
+          <p>В каждом раунде один игрок объясняет слово, следующий по кругу угадывает, остальные становятся минерами.</p>
+          <p>Минеры до начала объяснения добавляют и редактируют свои мины. Объясняющий и отгадывающий список мин не видят.</p>
+          <p>Во время объяснения минеры нажимают на мины, если объясняющий или отгадывающий произнесли их.</p>
+          <p>Если слово угадали, объясняющий получает +1. Каждая сработавшая мина снимает 1 очко с объясняющего и отгадывающего.</p>
+          <p>После результата следующий раунд стартует автоматически, пока не выполнено условие финала.</p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function MineList({
   mines,
   clickable,
+  editable,
   roomId,
+  selfId,
   triggeredWords = [],
 }: {
   mines: Mine[];
   clickable?: boolean;
+  editable?: boolean;
   roomId?: string;
+  selfId?: string;
   triggeredWords?: string[];
 }) {
   if (mines.length === 0) {
@@ -568,23 +645,90 @@ function MineList({
   return (
     <div className="mine-list">
       {mines.map((mine) => (
-        <button
-          className={[
-            "mine-chip",
-            clickable ? "clickable" : "",
-            triggeredWords.includes(mine.word) ? "triggered" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
+        <MineChip
           key={`${mine.word}-${mine.authorPlayerId}`}
-          disabled={!clickable}
-          onClick={() => clickable && socket.emit("round:mine", { roomId, mineWord: mine.word })}
-        >
-          {mine.word}
-          <span>{mine.authorName}</span>
-        </button>
+          mine={mine}
+          clickable={clickable}
+          editable={editable && mine.authorPlayerId === selfId}
+          roomId={roomId}
+          isTriggered={triggeredWords.includes(mine.word)}
+        />
       ))}
     </div>
+  );
+}
+
+function MineChip({
+  mine,
+  clickable,
+  editable,
+  roomId,
+  isTriggered,
+}: {
+  mine: Mine;
+  clickable?: boolean;
+  editable?: boolean;
+  roomId?: string;
+  isTriggered?: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(mine.word);
+
+  useEffect(() => {
+    setDraft(mine.word);
+  }, [mine.word]);
+
+  function saveEdit() {
+    if (!roomId) return;
+    socket.emit("mine:update", { roomId, oldWord: mine.word, newWord: draft });
+    setIsEditing(false);
+  }
+
+  if (editable && isEditing) {
+    return (
+      <form
+        className="mine-edit"
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveEdit();
+        }}
+      >
+        <input value={draft} onChange={(event) => setDraft(event.target.value)} autoFocus />
+        <button className="icon-button" type="submit" aria-label="Сохранить">
+          <Save size={16} />
+        </button>
+        <button className="icon-button" type="button" aria-label="Отмена" onClick={() => setIsEditing(false)}>
+          <X size={16} />
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <span
+      className={[
+        "mine-chip",
+        clickable ? "clickable" : "",
+        editable ? "editable" : "",
+        isTriggered ? "triggered" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <button
+        className="mine-word"
+        disabled={!clickable}
+        onClick={() => clickable && socket.emit("round:mine", { roomId, mineWord: mine.word })}
+      >
+        {mine.word}
+        <span>{mine.authorName}</span>
+      </button>
+      {editable && (
+        <button className="mine-edit-button" type="button" aria-label="Редактировать мину" onClick={() => setIsEditing(true)}>
+          <Edit3 size={15} />
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -612,6 +756,49 @@ function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>) {
     return round.durationSec;
   }
   return Math.max(0, Math.ceil((round.timerEndsAt - now) / 1000));
+}
+
+function useTimerWarning(secondsLeft: number, phase: RoomSnapshot["phase"], isPaused: boolean) {
+  const lastSecondRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (phase !== "explaining" || isPaused || secondsLeft <= 0 || secondsLeft > 10) {
+      lastSecondRef.current = secondsLeft;
+      return;
+    }
+    if (lastSecondRef.current === secondsLeft) {
+      return;
+    }
+
+    lastSecondRef.current = secondsLeft;
+    playTimerTick(secondsLeft);
+  }, [secondsLeft, phase, isPaused]);
+}
+
+function playTimerTick(secondsLeft: number) {
+  const AudioContextClass =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const audioContext = new AudioContextClass();
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const now = audioContext.currentTime;
+
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(secondsLeft <= 3 ? 880 : 520, now);
+  oscillator.frequency.exponentialRampToValueAtTime(secondsLeft <= 3 ? 420 : 320, now + 0.16);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(secondsLeft <= 3 ? 0.24 : 0.13, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.2);
+  window.setTimeout(() => void audioContext.close(), 260);
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
