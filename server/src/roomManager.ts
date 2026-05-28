@@ -516,7 +516,7 @@ export class RoomManager {
     }
 
     if (requestedStatus === "skipped" || requestedStatus === "timeout") {
-      round.status = "failed";
+      round.status = requestedStatus;
       for (const playerId of [round.explainerId, round.guesserId]) {
         const player = room.players.find((candidate) => candidate.id === playerId);
         if (player) {
@@ -524,8 +524,6 @@ export class RoomManager {
           this.applyScoreDelta(round, player, -1, reason);
         }
       }
-    } else if (triggeredCount > 0) {
-      round.status = "failed";
     } else {
       round.status = requestedStatus;
     }

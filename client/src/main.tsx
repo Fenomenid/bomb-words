@@ -499,10 +499,17 @@ function MineSubmission({
       <RoleLine round={round} selfId={room.selfId} />
 
       {isExplainer ? (
-        <p className="notice">
-          Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.
-          {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
-        </p>
+        <div className={allMinesSubmitted ? "notice ready-notice" : "notice"}>
+          {allMinesSubmitted && (
+            <span className="ready-icon" aria-hidden="true">
+              <Check size={18} />
+            </span>
+          )}
+          <span>
+            Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.
+            {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
+          </span>
+        </div>
       ) : !round.canSubmitMines ? (
         <p className="notice">Минеры придумывают мины. Вам пока видно только количество мин: {round.mineCount}.</p>
       ) : (
@@ -597,14 +604,8 @@ function Explaining({
 function RoundResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) {
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
-  const statusText = {
-    success: "Слово угадано",
-    failed: round.triggeredMines?.length ? "Провал: сработала мина" : "Провал: не угадали",
-    skipped: "Провал: не угадали",
-    timeout: "Провал: время вышло",
-    waiting_mines: "Раунд завершен",
-    active: "Раунд завершен",
-  }[round.status];
+  const hasTriggeredMines = (round.triggeredMines?.length ?? 0) > 0;
+  const statusText = getRoundResultTitle(round.status, hasTriggeredMines);
 
   return (
     <div className="stage">
@@ -647,6 +648,22 @@ function ScoreDeltaList({ deltas }: { deltas: ScoreDelta[] }) {
       ))}
     </div>
   );
+}
+
+function getRoundResultTitle(status: NonNullable<RoomSnapshot["currentRound"]>["status"], hasTriggeredMines: boolean) {
+  if (status === "success") {
+    return hasTriggeredMines ? "Слово угадано, но с потерями" : "Идеально угадано";
+  }
+  if (status === "skipped") {
+    return hasTriggeredMines ? "Сработали мины" : "Слово не угадано";
+  }
+  if (status === "timeout") {
+    return hasTriggeredMines ? "Время вышло, мины сработали" : "Время вышло";
+  }
+  if (status === "failed") {
+    return hasTriggeredMines ? "Сработали мины" : "Слово не угадано";
+  }
+  return "Раунд завершен";
 }
 
 function GameResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) {

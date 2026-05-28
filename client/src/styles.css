@@ -136,6 +136,26 @@ h2 {
   line-height: 1.45;
 }
 
+.ready-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #1f5d3a;
+  background: #eaf8ef;
+  border-color: #bfe4ca;
+}
+
+.ready-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #2f7d4f;
+}
+
 .error {
   color: #8a1d2c;
   background: #ffe8ec;
@@ -632,6 +652,16 @@ select:focus {
   color: #d8eef8;
   background: #173447;
   border-color: #2d607d;
+}
+
+:root[data-theme="dark"] .ready-notice {
+  color: #d9f8e4;
+  background: #12351f;
+  border-color: #2d6e45;
+}
+
+:root[data-theme="dark"] .ready-icon {
+  background: #39985f;
 }
 
 :root[data-theme="dark"] .error {
