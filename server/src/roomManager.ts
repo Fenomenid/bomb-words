@@ -286,10 +286,13 @@ export class RoomManager {
     if (!mine) {
       throw new GameError("Мина не найдена");
     }
-    if (!round.triggeredMines.some((candidate) => candidate.word === mine.word)) {
+    if (round.triggeredMines.some((candidate) => candidate.word === mine.word)) {
+      round.triggeredMines = round.triggeredMines.filter((candidate) => candidate.word !== mine.word);
+      round.resultMine = round.triggeredMines.at(-1);
+    } else {
       round.triggeredMines.push(mine);
+      round.resultMine = mine;
     }
-    round.resultMine = mine;
     return room;
   }
 
@@ -506,39 +509,53 @@ export class RoomManager {
       for (const playerId of [round.explainerId, round.guesserId]) {
         const player = room.players.find((candidate) => candidate.id === playerId);
         if (player) {
-          player.score += 1;
           const reason = player.id === round.explainerId ? "объяснение угадали" : "слово угадано";
-          round.scoreDeltas.push({
-            playerId: player.id,
-            playerName: player.name,
-            delta: 1,
-            reason,
-          });
+          this.applyScoreDelta(round, player, 1, reason);
         }
       }
     }
 
-    if (triggeredCount > 0) {
+    if (requestedStatus === "skipped" || requestedStatus === "timeout") {
       round.status = "failed";
       for (const playerId of [round.explainerId, round.guesserId]) {
         const player = room.players.find((candidate) => candidate.id === playerId);
         if (player) {
-          const delta = -triggeredCount;
-          player.score += delta;
-          round.scoreDeltas.push({
-            playerId: player.id,
-            playerName: player.name,
-            delta,
-            reason: `${triggeredCount} мин`,
-          });
+          const reason = requestedStatus === "timeout" ? "время вышло" : "не угадали";
+          this.applyScoreDelta(round, player, -1, reason);
         }
       }
+    } else if (triggeredCount > 0) {
+      round.status = "failed";
     } else {
       round.status = requestedStatus;
     }
 
+    if (triggeredCount > 0) {
+      for (const playerId of [round.explainerId, round.guesserId]) {
+        const player = room.players.find((candidate) => candidate.id === playerId);
+        if (player) {
+          const delta = -triggeredCount;
+          this.applyScoreDelta(round, player, delta, `${triggeredCount} мин`);
+        }
+      }
+    }
+
     room.phase = "round_result";
     this.startPhaseTimer(round, room.settings.resultDurationSec);
+  }
+
+  private applyScoreDelta(round: Room["currentRound"], player: Player, delta: number, reason: string): void {
+    if (!round) {
+      return;
+    }
+
+    player.score += delta;
+    round.scoreDeltas.push({
+      playerId: player.id,
+      playerName: player.name,
+      delta,
+      reason,
+    });
   }
 
   private startNextRoundOrFinishGame(room: Room): void {

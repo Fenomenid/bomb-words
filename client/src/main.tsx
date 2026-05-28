@@ -421,7 +421,7 @@ function MineSubmission({
       {isHost && <TimerControls room={room} />}
 
       {isExplainer ? (
-        <p className="notice">Остальные игроки придумывают мины. Список мин скрыт.</p>
+        <p className="notice">Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.</p>
       ) : !round.canSubmitMines ? (
         <p className="notice">Минеры придумывают мины. Вам пока видно только количество мин: {round.mineCount}.</p>
       ) : (
@@ -518,9 +518,9 @@ function RoundResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) 
   const secondsLeft = useCountdown(round);
   const statusText = {
     success: "Слово угадали",
-    failed: "Сработала мина",
-    skipped: "Раунд пропущен",
-    timeout: "Время вышло",
+    failed: round.triggeredMines?.length ? "Провал: сработала мина" : "Провал: не угадали",
+    skipped: "Провал: не угадали",
+    timeout: "Провал: время вышло",
     waiting_mines: "Раунд завершен",
     active: "Раунд завершен",
   }[round.status];
@@ -700,16 +700,16 @@ function MineChip({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(mine.word);
   const [pendingTriggered, setPendingTriggered] = useState(false);
-  const effectiveTriggered = Boolean(isTriggered || pendingTriggered);
+  const [pendingCleared, setPendingCleared] = useState(false);
+  const effectiveTriggered = Boolean((isTriggered || pendingTriggered) && !pendingCleared);
 
   useEffect(() => {
     setDraft(mine.word);
   }, [mine.word]);
 
   useEffect(() => {
-    if (isTriggered) {
-      setPendingTriggered(false);
-    }
+    setPendingTriggered(false);
+    setPendingCleared(false);
   }, [isTriggered]);
 
   function saveEdit() {
@@ -751,10 +751,16 @@ function MineChip({
     >
       <button
         className="mine-word"
-        disabled={!clickable || effectiveTriggered}
+        disabled={!clickable}
         onClick={() => {
           if (!clickable) return;
-          setPendingTriggered(true);
+          if (effectiveTriggered) {
+            setPendingCleared(true);
+            setPendingTriggered(false);
+          } else {
+            setPendingTriggered(true);
+            setPendingCleared(false);
+          }
           socket.emit("round:mine", { roomId, mineWord: mine.word });
         }}
       >
@@ -811,7 +817,7 @@ function useTimerWarning(secondsLeft: number, phase: RoomSnapshot["phase"], isPa
 
     lastSecondRef.current = secondsLeft;
     playTimerTick(secondsLeft);
-  }, [secondsLeft, phase, isPaused]);
+  }, [secondsLeft, phase, isPaused, soundEnabled]);
 }
 
 function playTimerTick(secondsLeft: number) {
@@ -824,20 +830,27 @@ function playTimerTick(secondsLeft: number) {
   const audioContext = new AudioContextClass();
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
   const now = audioContext.currentTime;
+  const urgent = secondsLeft <= 3;
+  const frequency = urgent ? 660 + (3 - secondsLeft) * 70 : 440;
+  const duration = urgent ? 0.16 : 0.12;
 
-  oscillator.type = "sawtooth";
-  oscillator.frequency.setValueAtTime(secondsLeft <= 3 ? 880 : 520, now);
-  oscillator.frequency.exponentialRampToValueAtTime(secondsLeft <= 3 ? 420 : 320, now + 0.16);
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(frequency, now);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.82, now + duration);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(1400, now);
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(secondsLeft <= 3 ? 0.24 : 0.13, now + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  gain.gain.exponentialRampToValueAtTime(urgent ? 0.12 : 0.075, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-  oscillator.connect(gain);
+  oscillator.connect(filter);
+  filter.connect(gain);
   gain.connect(audioContext.destination);
   oscillator.start(now);
-  oscillator.stop(now + 0.2);
-  window.setTimeout(() => void audioContext.close(), 260);
+  oscillator.stop(now + duration + 0.02);
+  window.setTimeout(() => void audioContext.close(), 240);
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
