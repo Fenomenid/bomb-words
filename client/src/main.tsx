@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { io } from "socket.io-client";
-import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, SkipForward, Sun, Timer, Trophy, Users, X } from "lucide-react";
+import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
 import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
@@ -75,6 +75,7 @@ function App() {
   const [mineWord, setMineWord] = useState("");
   const [copied, setCopied] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("soundEnabled") !== "false");
   const [theme, setTheme] = useState<"light" | "dark">(
     () => (localStorage.getItem("theme") === "dark" ? "dark" : "light"),
   );
@@ -95,6 +96,10 @@ function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("soundEnabled", String(soundEnabled));
+  }, [soundEnabled]);
 
   useEffect(() => {
     socket.on("room", (snapshot: RoomSnapshot) => {
@@ -173,6 +178,10 @@ function App() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             {theme === "dark" ? "Светлая тема" : "Темная тема"}
           </button>
+          <button className="secondary" onClick={() => setSoundEnabled((enabled) => !enabled)}>
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {soundEnabled ? "Звук включен" : "Звук выключен"}
+          </button>
           <button className="secondary" onClick={() => setShowRules(true)}>
             <HelpCircle size={18} />
             Правила
@@ -195,6 +204,10 @@ function App() {
           <button className="secondary icon-text" onClick={toggleTheme}>
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             {theme === "dark" ? "Светлая" : "Темная"}
+          </button>
+          <button className="secondary icon-text" onClick={() => setSoundEnabled((enabled) => !enabled)}>
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {soundEnabled ? "Звук" : "Без звука"}
           </button>
           <button className="secondary icon-text" onClick={copyInvite}>
             <Copy size={18} />
@@ -248,7 +261,7 @@ function App() {
           )}
 
           {room.phase === "explaining" && round && (
-            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} />
+            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} />
           )}
 
           {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} />}
@@ -442,12 +455,25 @@ function MineSubmission({
   );
 }
 
-function Explaining({ room, isExplainer, isGuesser, isHost }: { room: RoomSnapshot; isExplainer: boolean; isGuesser: boolean; isHost: boolean }) {
+function Explaining({
+  room,
+  isExplainer,
+  isGuesser,
+  isHost,
+  soundEnabled,
+}: {
+  room: RoomSnapshot;
+  isExplainer: boolean;
+  isGuesser: boolean;
+  isHost: boolean;
+  soundEnabled: boolean;
+}) {
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
   const canConfirmSuccess = !isExplainer;
   const canSkip = isHost || isGuesser || isExplainer;
-  useTimerWarning(secondsLeft, room.phase, round.isTimerPaused);
+  const isMiner = !isExplainer && !isGuesser;
+  useTimerWarning(secondsLeft, room.phase, round.isTimerPaused, soundEnabled);
 
   return (
     <div className="stage">
@@ -461,7 +487,7 @@ function Explaining({ room, isExplainer, isGuesser, isHost }: { room: RoomSnapsh
       {round.mines && (
         <MineList
           mines={round.mines}
-          clickable
+          clickable={isMiner}
           roomId={room.id}
           triggeredWords={(round.triggeredMines ?? []).map((mine) => mine.word)}
         />
@@ -758,11 +784,11 @@ function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>) {
   return Math.max(0, Math.ceil((round.timerEndsAt - now) / 1000));
 }
 
-function useTimerWarning(secondsLeft: number, phase: RoomSnapshot["phase"], isPaused: boolean) {
+function useTimerWarning(secondsLeft: number, phase: RoomSnapshot["phase"], isPaused: boolean, soundEnabled: boolean) {
   const lastSecondRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (phase !== "explaining" || isPaused || secondsLeft <= 0 || secondsLeft > 10) {
+    if (!soundEnabled || phase !== "explaining" || isPaused || secondsLeft <= 0 || secondsLeft > 10) {
       lastSecondRef.current = secondsLeft;
       return;
     }

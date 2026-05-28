@@ -492,15 +492,18 @@ export class RoomManager {
     round.scoreDeltas = [];
 
     if (requestedStatus === "success") {
-      const explainer = room.players.find((player) => player.id === round.explainerId);
-      if (explainer) {
-        explainer.score += 1;
-        round.scoreDeltas.push({
-          playerId: explainer.id,
-          playerName: explainer.name,
-          delta: 1,
-          reason: "слово угадали",
-        });
+      for (const playerId of [round.explainerId, round.guesserId]) {
+        const player = room.players.find((candidate) => candidate.id === playerId);
+        if (player) {
+          player.score += 1;
+          const reason = player.id === round.explainerId ? "объяснение угадали" : "слово угадано";
+          round.scoreDeltas.push({
+            playerId: player.id,
+            playerName: player.name,
+            delta: 1,
+            reason,
+          });
+        }
       }
     }
 
