@@ -28,7 +28,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -255,7 +256,8 @@ h2 {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid #cfd8e5;
   border-radius: 8px;
@@ -266,9 +268,16 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: #2f7fa3;
   box-shadow: 0 0 0 3px rgba(47, 127, 163, 0.14);
+}
+
+textarea {
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .primary,
@@ -327,6 +336,16 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.custom-dictionary {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #fbfcfe;
 }
 
 .segmented {
@@ -680,10 +699,16 @@ select:focus {
 }
 
 :root[data-theme="dark"] input,
-:root[data-theme="dark"] select {
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
   color: #e7edf6;
   background: #101722;
   border-color: #31435b;
+}
+
+:root[data-theme="dark"] .custom-dictionary {
+  background: #111a27;
+  border-color: #2a3a50;
 }
 
 :root[data-theme="dark"] .segmented {

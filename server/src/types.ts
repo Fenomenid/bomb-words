@@ -1,7 +1,7 @@
 export type RoomPhase = "lobby" | "mine_submission" | "explaining" | "round_result" | "game_result";
 export type RoundStatus = "waiting_mines" | "active" | "success" | "failed" | "skipped" | "timeout";
 export type EndCondition = "target_score" | "rounds";
-export type Difficulty = "easy" | "medium" | "hard";
+export type Difficulty = "easy" | "medium" | "hard" | "custom";
 
 export type Player = {
   id: string;
@@ -45,6 +45,7 @@ export type Room = {
   currentRound?: Round;
   roundIndex: number;
   usedWords: string[];
+  customWords: string[];
   settings: {
     roundDurationSec: number;
     mineSubmissionDurationSec: number;
@@ -68,6 +69,8 @@ export type RoomSnapshot = {
   selfId: string;
   roundIndex: number;
   settings: Room["settings"];
+  customWordCount: number;
+  customWords?: string[];
   finalStandings?: Player[];
   inviteUrl?: string;
   currentRound?: {

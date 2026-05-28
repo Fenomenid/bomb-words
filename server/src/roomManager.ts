@@ -3,6 +3,9 @@ import type { Mine, Player, PublicMine, Room, RoomSnapshot, RoundStatus } from "
 import { WORD_DICTIONARIES } from "./words.js";
 
 const MIN_PLAYERS = 3;
+const MIN_CUSTOM_WORDS = 10;
+const MAX_CUSTOM_WORDS = 1000;
+const MAX_CUSTOM_WORD_LENGTH = 40;
 
 export class GameError extends Error {
   constructor(message: string) {
@@ -22,6 +25,7 @@ export class RoomManager {
       phase: "lobby",
       roundIndex: 0,
       usedWords: [],
+      customWords: [],
       settings: {
         roundDurationSec: 120,
         mineSubmissionDurationSec: 60,
@@ -92,6 +96,9 @@ export class RoomManager {
     if (room.players.length < MIN_PLAYERS) {
       throw new GameError(`Нужно минимум ${MIN_PLAYERS} игрока`);
     }
+    if (room.settings.difficulty === "custom" && room.customWords.length < MIN_CUSTOM_WORDS) {
+      throw new GameError(`Для своего словаря нужно минимум ${MIN_CUSTOM_WORDS} слов`);
+    }
     if (room.phase !== "lobby" && room.phase !== "round_result") {
       throw new GameError("Раунд уже идет");
     }
@@ -126,6 +133,20 @@ export class RoomManager {
       maxRounds: clampInt(settings.maxRounds, room.settings.maxRounds, 1, 100),
       difficulty: isDifficulty(settings.difficulty) ? settings.difficulty : room.settings.difficulty,
     };
+    return room;
+  }
+
+  updateCustomWords(roomId: string, socketId: string, wordsText: string): Room {
+    const room = this.getRoom(roomId);
+    this.assertHost(room, socketId);
+    if (room.phase !== "lobby") {
+      throw new GameError("Свой словарь можно менять только в лобби");
+    }
+
+    room.customWords = normalizeCustomWords(wordsText);
+    if (room.settings.difficulty === "custom") {
+      room.usedWords = room.usedWords.filter((word) => room.customWords.includes(word));
+    }
     return room;
   }
 
@@ -351,6 +372,8 @@ export class RoomManager {
       selfId: viewerId,
       roundIndex: room.roundIndex,
       settings: room.settings,
+      customWordCount: room.customWords.length,
+      customWords: viewer?.isHost && room.phase === "lobby" ? room.customWords : undefined,
       finalStandings: room.phase === "game_result" ? this.getStandings(room) : undefined,
       inviteUrl: inviteOrigin ? `${inviteOrigin}/room/${room.id}` : undefined,
       currentRound: round
@@ -400,7 +423,10 @@ export class RoomManager {
   }
 
   private pickWord(room: Room): string {
-    const words = WORD_DICTIONARIES[room.settings.difficulty];
+    const words = room.settings.difficulty === "custom" ? room.customWords : WORD_DICTIONARIES[room.settings.difficulty];
+    if (words.length === 0) {
+      throw new GameError("Словарь пустой");
+    }
     if (room.usedWords.length >= words.length) {
       room.usedWords = [];
     }
@@ -637,5 +663,32 @@ function clampInt(value: unknown, fallback: number, min: number, max: number): n
 }
 
 function isDifficulty(value: unknown): value is Room["settings"]["difficulty"] {
-  return value === "easy" || value === "medium" || value === "hard";
+  return value === "easy" || value === "medium" || value === "hard" || value === "custom";
+}
+
+function normalizeCustomWords(wordsText: string): string[] {
+  const words = wordsText
+    .split(/\r?\n/)
+    .map((word) => word.trim().toLowerCase())
+    .filter(Boolean);
+  const uniqueWords: string[] = [];
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    if (/\s/.test(word)) {
+      throw new GameError("В своем словаре каждое слово должно быть одним словом без пробелов");
+    }
+    if (word.length > MAX_CUSTOM_WORD_LENGTH) {
+      throw new GameError(`Слово "${word}" длиннее ${MAX_CUSTOM_WORD_LENGTH} символов`);
+    }
+    if (!seen.has(word)) {
+      seen.add(word);
+      uniqueWords.push(word);
+    }
+    if (uniqueWords.length > MAX_CUSTOM_WORDS) {
+      throw new GameError(`В своем словаре максимум ${MAX_CUSTOM_WORDS} слов`);
+    }
+  }
+
+  return uniqueWords;
 }

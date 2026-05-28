@@ -68,6 +68,10 @@ io.on("connection", (socket) => {
     handle(socket.id, () => emitRoom(rooms.updateSettings(roomId, socket.id, settings)));
   });
 
+  socket.on("settings:customWords", ({ roomId, wordsText }: { roomId: string; wordsText: string }) => {
+    handle(socket.id, () => emitRoom(rooms.updateCustomWords(roomId, socket.id, wordsText)));
+  });
+
   socket.on("mine:add", ({ roomId, word }: { roomId: string; word: string }) => {
     handle(socket.id, () => emitRoom(rooms.addMine(roomId, socket.id, word)));
   });

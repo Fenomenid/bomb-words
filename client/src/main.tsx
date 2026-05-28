@@ -41,8 +41,10 @@ type RoomSnapshot = {
     endCondition: "target_score" | "rounds";
     targetScore: number;
     maxRounds: number;
-    difficulty: "easy" | "medium" | "hard";
+    difficulty: "easy" | "medium" | "hard" | "custom";
   };
+  customWordCount: number;
+  customWords?: string[];
   finalStandings?: Player[];
   inviteUrl?: string;
   currentRound?: {
@@ -110,7 +112,8 @@ function App() {
   const round = room?.currentRound;
   const isExplainer = Boolean(round && room?.selfId === round.explainerId);
   const isGuesser = Boolean(round && room?.selfId === round.guesserId);
-  const canStartGame = Boolean(room && isHost && room.players.length >= 3);
+  const hasEnoughCustomWords = Boolean(room && (room.settings.difficulty !== "custom" || room.customWordCount >= 10));
+  const canStartGame = Boolean(room && isHost && room.players.length >= 3 && hasEnoughCustomWords);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -301,10 +304,17 @@ function App() {
 
 function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boolean; canStartGame: boolean }) {
   const [draftSettings, setDraftSettings] = useState(() => settingsToDraft(room.settings));
+  const [customWordsText, setCustomWordsText] = useState(() => (room.customWords ?? []).join("\n"));
 
   useEffect(() => {
     setDraftSettings(settingsToDraft(room.settings));
   }, [room.settings]);
+
+  useEffect(() => {
+    if (room.customWords) {
+      setCustomWordsText(room.customWords.join("\n"));
+    }
+  }, [room.customWords]);
 
   function updateSetting(key: keyof RoomSnapshot["settings"], value: string) {
     const nextValue = key === "endCondition" || key === "difficulty" ? value : Number(value);
@@ -337,6 +347,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
     }
   }
 
+  function saveCustomWords() {
+    socket.emit("settings:customWords", { roomId: room.id, wordsText: customWordsText });
+  }
+
   return (
     <div className="stage">
       <p className="eyebrow">Лобби</p>
@@ -353,6 +367,7 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             <option value="easy">Легкий</option>
             <option value="medium">Средний</option>
             <option value="hard">Нереальный</option>
+            <option value="custom">Свой словарь</option>
           </select>
         </label>
         <div className="field">
@@ -458,11 +473,40 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
           />
         </label>
       </div>
+      {room.settings.difficulty === "custom" && (
+        <div className="custom-dictionary">
+          <div>
+            <p className="section-title">Свой словарь</p>
+            <p className="muted">Сейчас слов: {room.customWordCount}. Нужно минимум 10. Одно слово на строку, без пробелов.</p>
+          </div>
+          {isHost ? (
+            <>
+              <textarea
+                value={customWordsText}
+                onChange={(event) => setCustomWordsText(event.target.value)}
+                placeholder={"корабль\nмолния\nпожарный"}
+                rows={8}
+              />
+              <button className="secondary" type="button" onClick={saveCustomWords}>
+                <Save size={18} />
+                Сохранить словарь
+              </button>
+            </>
+          ) : (
+            <p className="notice">Хост загрузит свой словарь перед стартом.</p>
+          )}
+        </div>
+      )}
       {isHost ? (
-        <button className="primary" disabled={!canStartGame} onClick={() => socket.emit("game:start", { roomId: room.id })}>
-          <Flag size={18} />
-          Начать игру
-        </button>
+        <>
+          {room.settings.difficulty === "custom" && room.customWordCount < 10 && (
+            <p className="notice">Для старта со своим словарем нужно минимум 10 сохраненных слов.</p>
+          )}
+          <button className="primary" disabled={!canStartGame} onClick={() => socket.emit("game:start", { roomId: room.id })}>
+            <Flag size={18} />
+            Начать игру
+          </button>
+        </>
       ) : (
         <p className="notice">Хост начнет игру, когда все будут готовы.</p>
       )}
