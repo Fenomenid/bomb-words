@@ -23,9 +23,9 @@ export class RoomManager {
       roundIndex: 0,
       usedWords: [],
       settings: {
-        roundDurationSec: 60,
+        roundDurationSec: 120,
         mineSubmissionDurationSec: 60,
-        resultDurationSec: 30,
+        resultDurationSec: 10,
         minesPerPlayer: 2,
         endCondition: "target_score",
         targetScore: 10,
@@ -481,8 +481,8 @@ export class RoomManager {
     if (!player) {
       throw new GameError("Игрок не найден");
     }
-    if (player.id === round.guesserId || (player.isHost && player.id !== round.explainerId)) {
-      throw new GameError("Угадывание подтверждают объясняющий или минеры");
+    if (player.id !== round.explainerId) {
+      throw new GameError("Угадывание подтверждает объясняющий");
     }
   }
 

@@ -116,6 +116,17 @@ h2 {
   line-height: 1.5;
 }
 
+.self-label {
+  color: #526177;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+
+.self-label strong {
+  color: #18202f;
+}
+
 .notice {
   color: #25435a;
   background: #eaf4f8;
@@ -183,6 +194,12 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.self-mark {
+  color: #236f8f;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .player-name svg {
@@ -290,6 +307,29 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #cfd8e5;
+  border-radius: 8px;
+  background: #edf1f6;
+}
+
+.segmented button {
+  min-height: 38px;
+  border-radius: 6px;
+  color: #526177;
+  background: transparent;
+  font-weight: 800;
+}
+
+.segmented button.active {
+  color: #ffffff;
+  background: #236f8f;
 }
 
 .mine-list {
@@ -577,9 +617,15 @@ select:focus {
 
 :root[data-theme="dark"] .eyebrow,
 :root[data-theme="dark"] .muted,
+:root[data-theme="dark"] .self-label,
 :root[data-theme="dark"] .player-row span,
 :root[data-theme="dark"] .score-delta small {
   color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .self-label strong,
+:root[data-theme="dark"] .self-mark {
+  color: #5fc4ef;
 }
 
 :root[data-theme="dark"] .notice {
@@ -608,6 +654,20 @@ select:focus {
   color: #e7edf6;
   background: #101722;
   border-color: #31435b;
+}
+
+:root[data-theme="dark"] .segmented {
+  background: #101722;
+  border-color: #31435b;
+}
+
+:root[data-theme="dark"] .segmented button {
+  color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .segmented button.active {
+  color: #ffffff;
+  background: #2f8eb7;
 }
 
 :root[data-theme="dark"] .field {

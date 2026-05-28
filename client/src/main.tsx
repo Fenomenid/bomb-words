@@ -175,9 +175,8 @@ function App() {
       <main className="page auth-page">
         <section className="auth-panel">
           <div>
-            <p className="eyebrow">MVP</p>
             <h1>Слова-мины</h1>
-            <p className="muted">Создайте комнату или войдите по приглашению. Голосовой созвон остается вне игры.</p>
+            <p className="muted">Создайте комнату или войдите по приглашению.</p>
           </div>
           <label className="field">
             <span>Ваше имя</span>
@@ -219,8 +218,14 @@ function App() {
         <div>
           <p className="eyebrow">Комната {room.id}</p>
           <h1>Слова-мины</h1>
+          {self && (
+            <p className="self-label">
+              Вы: <strong>{self.name}</strong>
+            </p>
+          )}
         </div>
         <div className="top-actions">
+          {isHost && round && room.phase !== "game_result" && <TimerControls room={room} />}
           <button className="secondary icon-text" onClick={toggleTheme}>
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             {theme === "dark" ? "Светлая" : "Темная"}
@@ -254,6 +259,7 @@ function App() {
                 <div>
                   <strong className="player-name">
                     {player.name}
+                    {player.id === room.selfId && <span className="self-mark">(Вы)</span>}
                     {player.isHost && <KeyRound size={15} aria-label="Хост" />}
                   </strong>
                   <span>{player.id === round?.explainerId ? "Объясняет" : player.id === round?.guesserId ? "Угадывает" : round ? "Минер" : "В лобби"}</span>
@@ -349,43 +355,56 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             <option value="hard">Нереальный</option>
           </select>
         </label>
-        <label className="field">
+        <div className="field">
           <span>Финал игры</span>
-          <select
-            disabled={!isHost}
-            value={room.settings.endCondition}
-            onChange={(event) => updateSetting("endCondition", event.target.value)}
-          >
-            <option value="target_score">По очкам</option>
-            <option value="rounds">По раундам</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Очков для победы</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            disabled={!isHost || room.settings.endCondition !== "target_score"}
-            value={draftSettings.targetScore}
-            onChange={(event) => setDraftSetting("targetScore", event.target.value)}
-            onBlur={() => commitNumberSetting("targetScore")}
-            onKeyDown={(event) => handleNumberKeyDown(event, "targetScore")}
-          />
-        </label>
-        <label className="field">
-          <span>Количество раундов</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            disabled={!isHost || room.settings.endCondition !== "rounds"}
-            value={draftSettings.maxRounds}
-            onChange={(event) => setDraftSetting("maxRounds", event.target.value)}
-            onBlur={() => commitNumberSetting("maxRounds")}
-            onKeyDown={(event) => handleNumberKeyDown(event, "maxRounds")}
-          />
-        </label>
+          <div className="segmented" role="group" aria-label="Финал игры">
+            <button
+              type="button"
+              className={room.settings.endCondition === "target_score" ? "active" : ""}
+              disabled={!isHost}
+              onClick={() => updateSetting("endCondition", "target_score")}
+            >
+              По очкам
+            </button>
+            <button
+              type="button"
+              className={room.settings.endCondition === "rounds" ? "active" : ""}
+              disabled={!isHost}
+              onClick={() => updateSetting("endCondition", "rounds")}
+            >
+              По раундам
+            </button>
+          </div>
+        </div>
+        {room.settings.endCondition === "target_score" ? (
+          <label className="field">
+            <span>Очков для победы</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              disabled={!isHost}
+              value={draftSettings.targetScore}
+              onChange={(event) => setDraftSetting("targetScore", event.target.value)}
+              onBlur={() => commitNumberSetting("targetScore")}
+              onKeyDown={(event) => handleNumberKeyDown(event, "targetScore")}
+            />
+          </label>
+        ) : (
+          <label className="field">
+            <span>Количество раундов</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              disabled={!isHost}
+              value={draftSettings.maxRounds}
+              onChange={(event) => setDraftSetting("maxRounds", event.target.value)}
+              onBlur={() => commitNumberSetting("maxRounds")}
+              onKeyDown={(event) => handleNumberKeyDown(event, "maxRounds")}
+            />
+          </label>
+        )}
         <label className="field">
           <span>Мин на игрока</span>
           <input
@@ -469,17 +488,21 @@ function MineSubmission({
   const round = room.currentRound!;
   const remaining = room.settings.minesPerPlayer - round.myMineCount;
   const secondsLeft = useCountdown(round);
+  const totalMineSlots = Math.max(0, (room.players.length - 2) * room.settings.minesPerPlayer);
+  const allMinesSubmitted = totalMineSlots > 0 && round.mineCount >= totalMineSlots;
 
   return (
     <div className="stage">
       <p className="eyebrow">Раунд {room.roundIndex}</p>
       <div className="timer">{secondsLeft}</div>
       <h2>{round.word ?? "Слово скрыто"}</h2>
-      <RoleLine round={round} />
-      {isHost && <TimerControls room={room} />}
+      <RoleLine round={round} selfId={room.selfId} />
 
       {isExplainer ? (
-        <p className="notice">Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.</p>
+        <p className="notice">
+          Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.
+          {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
+        </p>
       ) : !round.canSubmitMines ? (
         <p className="notice">Минеры придумывают мины. Вам пока видно только количество мин: {round.mineCount}.</p>
       ) : (
@@ -529,8 +552,9 @@ function Explaining({
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
   const isMiner = !isExplainer && !isGuesser;
-  const canConfirmSuccess = isExplainer || isMiner;
+  const canConfirmSuccess = isExplainer;
   const canSkip = isGuesser || isExplainer;
+  const skipLabel = isGuesser ? "Сдаться" : "Не угадали";
   useTimerWarning(secondsLeft, room.phase, round.isTimerPaused, soundEnabled);
 
   return (
@@ -538,8 +562,7 @@ function Explaining({
       <p className="eyebrow">Объяснение</p>
       <div className="timer">{secondsLeft}</div>
       {isExplainer ? <h2>{round.word}</h2> : <h2>{isGuesser ? "Угадывайте слово" : round.word}</h2>}
-      <RoleLine round={round} />
-      {isHost && <TimerControls room={room} />}
+      <RoleLine round={round} selfId={room.selfId} />
       <p className="notice">Мин в раунде: {round.mineCount}</p>
 
       {round.mines && (
@@ -562,7 +585,7 @@ function Explaining({
           <>
             <button className="danger" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
               <Siren size={18} />
-              Не угадали
+              {skipLabel}
             </button>
           </>
         )}
@@ -575,7 +598,7 @@ function RoundResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) 
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
   const statusText = {
-    success: "Слово угадали",
+    success: "Слово угадано",
     failed: round.triggeredMines?.length ? "Провал: сработала мина" : "Провал: не угадали",
     skipped: "Провал: не угадали",
     timeout: "Провал: время вышло",
@@ -595,7 +618,6 @@ function RoundResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) 
       {(round.triggeredMines?.length ?? 0) > 0 && <p className="notice">Попались на мин: {round.triggeredMines?.length}</p>}
       <ScoreDeltaList deltas={round.scoreDeltas} />
       <MineList mines={round.mines ?? []} triggeredWords={(round.triggeredMines ?? []).map((mine) => mine.word)} />
-      {isHost && <TimerControls room={room} />}
       {isHost && (
         <button className="primary" onClick={() => socket.emit("round:next", { roomId: room.id })}>
           <Flag size={18} />
@@ -695,11 +717,14 @@ function RulesModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="rules-list">
+          <p>Играйте голосом где удобно: сайт ведет комнаты, роли, таймеры, мины и очки.</p>
           <p>Хост создает комнату, выбирает сложность, таймеры, количество мин и условие финала.</p>
           <p>В каждом раунде один игрок объясняет слово, следующий по кругу угадывает, остальные становятся минерами.</p>
           <p>Минеры до начала объяснения добавляют и редактируют свои мины. Объясняющий и отгадывающий список мин не видят.</p>
-          <p>Во время объяснения минеры нажимают на мины, если объясняющий или отгадывающий произнесли их.</p>
-          <p>Если слово угадали, объясняющий получает +1. Каждая сработавшая мина снимает 1 очко с объясняющего и отгадывающего.</p>
+          <p>Во время объяснения минеры нажимают на сработавшие мины и могут снять отметку, если ошиблись.</p>
+          <p>Слово подтверждает объясняющий. Отгадывающий может сдаться, а объясняющий отметить, что слово не угадали.</p>
+          <p>За угаданное слово объясняющий и отгадывающий получают +1. За провал или таймер оба теряют 1 очко.</p>
+          <p>Каждая сработавшая мина снимает еще по 1 очку с объясняющего и отгадывающего, а автору мины дает +1.</p>
           <p>После результата следующий раунд стартует автоматически, пока не выполнено условие финала.</p>
         </div>
       </section>
@@ -835,10 +860,15 @@ function MineChip({
   );
 }
 
-function RoleLine({ round }: { round: NonNullable<RoomSnapshot["currentRound"]> }) {
+function RoleLine({ round, selfId }: { round: NonNullable<RoomSnapshot["currentRound"]>; selfId: string }) {
+  const explainerName = round.explainerId === selfId ? "Вы" : round.explainerName;
+  const guesserName = round.guesserId === selfId ? "Вы" : round.guesserName;
+  const explainerLabel = round.explainerId === selfId ? "Объясняете" : "Объясняет";
+  const guesserLabel = round.guesserId === selfId ? "Угадываете" : "Угадывает";
+
   return (
     <p className="muted">
-      Объясняет: <strong>{round.explainerName}</strong>. Угадывает: <strong>{round.guesserName}</strong>.
+      {explainerLabel}: <strong>{explainerName}</strong>. {guesserLabel}: <strong>{guesserName}</strong>.
     </p>
   );
 }
