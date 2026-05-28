@@ -4,7 +4,8 @@ import { io } from "socket.io-client";
 import { Check, Copy, Crown, Flag, KeyRound, LogIn, Medal, Pause, Play, Plus, RotateCcw, SkipForward, Timer, Trophy, Users } from "lucide-react";
 import "./styles.css";
 
-const socket = io(import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001");
+const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
+const socket = io(socketUrl);
 
 type Player = {
   id: string;

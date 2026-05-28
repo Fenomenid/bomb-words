@@ -1,11 +1,15 @@
 import express from "express";
 import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { GameError, RoomManager } from "./roomManager.js";
 import type { Room } from "./types.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? (process.env.NODE_ENV === "production" ? "*" : "http://localhost:5173");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDistPath = path.resolve(__dirname, "../../client/dist");
 
 const app = express();
 app.use((_req, res, next) => {
@@ -17,6 +21,13 @@ app.use((_req, res, next) => {
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(clientDistPath));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -155,8 +166,18 @@ function handle(socketId: string, callback: () => void): void {
 
 function emitRoom(room: Room): void {
   for (const player of room.players) {
-    io.to(player.id).emit("room", rooms.getSnapshot(room, player.id, CLIENT_ORIGIN.replace(":3001", ":5173")));
+    io.to(player.id).emit("room", rooms.getSnapshot(room, player.id, publicClientOrigin()));
   }
+}
+
+function publicClientOrigin(): string | undefined {
+  if (process.env.PUBLIC_CLIENT_ORIGIN) {
+    return process.env.PUBLIC_CLIENT_ORIGIN;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:5173";
+  }
+  return undefined;
 }
 
 function schedulePhaseTimer(room: Room): void {

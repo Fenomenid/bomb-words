@@ -73,6 +73,23 @@ CLIENT_ORIGIN=http://localhost:5173
 VITE_SERVER_URL=http://localhost:3001
 ```
 
+## Render
+
+Для одного Node Web Service:
+
+```text
+Build Command: npm install && npm run build
+Start Command: npm start
+```
+
+Переменные окружения:
+
+```text
+NODE_ENV=production
+```
+
+`PORT` Render задает сам. В production сервер отдает собранный `client/dist`, а клиент подключается к Socket.IO на том же домене.
+
 ## Ограничения MVP
 
 - Комнаты и очки хранятся в памяти процесса.
