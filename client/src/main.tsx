@@ -68,6 +68,26 @@ type RoomSnapshot = {
   };
 };
 
+type SettingsDraft = {
+  targetScore: string;
+  maxRounds: string;
+  minesPerPlayer: string;
+  mineSubmissionDurationSec: string;
+  roundDurationSec: string;
+  resultDurationSec: string;
+};
+
+function settingsToDraft(settings: RoomSnapshot["settings"]): SettingsDraft {
+  return {
+    targetScore: String(settings.targetScore),
+    maxRounds: String(settings.maxRounds),
+    minesPerPlayer: String(settings.minesPerPlayer),
+    mineSubmissionDurationSec: String(settings.mineSubmissionDurationSec),
+    roundDurationSec: String(settings.roundDurationSec),
+    resultDurationSec: String(settings.resultDurationSec),
+  };
+}
+
 function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [error, setError] = useState("");
@@ -274,6 +294,12 @@ function App() {
 }
 
 function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boolean; canStartGame: boolean }) {
+  const [draftSettings, setDraftSettings] = useState(() => settingsToDraft(room.settings));
+
+  useEffect(() => {
+    setDraftSettings(settingsToDraft(room.settings));
+  }, [room.settings]);
+
   function updateSetting(key: keyof RoomSnapshot["settings"], value: string) {
     const nextValue = key === "endCondition" || key === "difficulty" ? value : Number(value);
     socket.emit("settings:update", {
@@ -283,6 +309,26 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
         [key]: nextValue,
       },
     });
+  }
+
+  function setDraftSetting(key: keyof SettingsDraft, value: string) {
+    setDraftSettings((current) => ({ ...current, [key]: value }));
+  }
+
+  function commitNumberSetting(key: keyof SettingsDraft) {
+    const value = draftSettings[key].trim();
+    if (!value) {
+      setDraftSettings(settingsToDraft(room.settings));
+      return;
+    }
+    updateSetting(key, value);
+  }
+
+  function handleNumberKeyDown(event: React.KeyboardEvent<HTMLInputElement>, key: keyof SettingsDraft) {
+    if (event.key === "Enter") {
+      event.currentTarget.blur();
+      commitNumberSetting(key);
+    }
   }
 
   return (
@@ -321,8 +367,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={1}
             max={100}
             disabled={!isHost || room.settings.endCondition !== "target_score"}
-            value={room.settings.targetScore}
-            onChange={(event) => updateSetting("targetScore", event.target.value)}
+            value={draftSettings.targetScore}
+            onChange={(event) => setDraftSetting("targetScore", event.target.value)}
+            onBlur={() => commitNumberSetting("targetScore")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "targetScore")}
           />
         </label>
         <label className="field">
@@ -332,8 +380,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={1}
             max={100}
             disabled={!isHost || room.settings.endCondition !== "rounds"}
-            value={room.settings.maxRounds}
-            onChange={(event) => updateSetting("maxRounds", event.target.value)}
+            value={draftSettings.maxRounds}
+            onChange={(event) => setDraftSetting("maxRounds", event.target.value)}
+            onBlur={() => commitNumberSetting("maxRounds")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "maxRounds")}
           />
         </label>
         <label className="field">
@@ -343,8 +393,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={1}
             max={10}
             disabled={!isHost}
-            value={room.settings.minesPerPlayer}
-            onChange={(event) => updateSetting("minesPerPlayer", event.target.value)}
+            value={draftSettings.minesPerPlayer}
+            onChange={(event) => setDraftSetting("minesPerPlayer", event.target.value)}
+            onBlur={() => commitNumberSetting("minesPerPlayer")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "minesPerPlayer")}
           />
         </label>
         <label className="field">
@@ -354,8 +406,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={10}
             max={300}
             disabled={!isHost}
-            value={room.settings.mineSubmissionDurationSec}
-            onChange={(event) => updateSetting("mineSubmissionDurationSec", event.target.value)}
+            value={draftSettings.mineSubmissionDurationSec}
+            onChange={(event) => setDraftSetting("mineSubmissionDurationSec", event.target.value)}
+            onBlur={() => commitNumberSetting("mineSubmissionDurationSec")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "mineSubmissionDurationSec")}
           />
         </label>
         <label className="field">
@@ -365,8 +419,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={10}
             max={300}
             disabled={!isHost}
-            value={room.settings.roundDurationSec}
-            onChange={(event) => updateSetting("roundDurationSec", event.target.value)}
+            value={draftSettings.roundDurationSec}
+            onChange={(event) => setDraftSetting("roundDurationSec", event.target.value)}
+            onBlur={() => commitNumberSetting("roundDurationSec")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "roundDurationSec")}
           />
         </label>
         <label className="field">
@@ -376,8 +432,10 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
             min={5}
             max={120}
             disabled={!isHost}
-            value={room.settings.resultDurationSec}
-            onChange={(event) => updateSetting("resultDurationSec", event.target.value)}
+            value={draftSettings.resultDurationSec}
+            onChange={(event) => setDraftSetting("resultDurationSec", event.target.value)}
+            onBlur={() => commitNumberSetting("resultDurationSec")}
+            onKeyDown={(event) => handleNumberKeyDown(event, "resultDurationSec")}
           />
         </label>
       </div>

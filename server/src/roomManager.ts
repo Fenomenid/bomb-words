@@ -538,6 +538,16 @@ export class RoomManager {
           this.applyScoreDelta(round, player, delta, `${triggeredCount} мин`);
         }
       }
+      const authorCounts = new Map<string, number>();
+      for (const mine of round.triggeredMines) {
+        authorCounts.set(mine.authorPlayerId, (authorCounts.get(mine.authorPlayerId) ?? 0) + 1);
+      }
+      for (const [authorPlayerId, count] of authorCounts) {
+        const player = room.players.find((candidate) => candidate.id === authorPlayerId);
+        if (player) {
+          this.applyScoreDelta(round, player, count, count === 1 ? "сработала мина" : `${count} мины сработали`);
+        }
+      }
     }
 
     room.phase = "round_result";
