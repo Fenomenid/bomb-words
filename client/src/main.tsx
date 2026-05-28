@@ -351,23 +351,47 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
     socket.emit("settings:customWords", { roomId: room.id, wordsText: customWordsText });
   }
 
+  function switchToBuiltInDictionary() {
+    updateSetting("difficulty", "easy");
+  }
+
   return (
     <div className="stage">
       <p className="eyebrow">Лобби</p>
       <h2>Ожидание игроков</h2>
       <p className="muted">Минимум 3 игрока. Сейчас в комнате: {room.players.length}.</p>
       <div className="settings-grid">
+        <div className="field">
+          <span>Источник слов</span>
+          <div className="segmented" role="group" aria-label="Источник слов">
+            <button
+              type="button"
+              className={room.settings.difficulty !== "custom" ? "active" : ""}
+              disabled={!isHost}
+              onClick={switchToBuiltInDictionary}
+            >
+              Встроенный
+            </button>
+            <button
+              type="button"
+              className={room.settings.difficulty === "custom" ? "active" : ""}
+              disabled={!isHost}
+              onClick={() => updateSetting("difficulty", "custom")}
+            >
+              Свой
+            </button>
+          </div>
+        </div>
         <label className="field">
           <span>Сложность слов</span>
           <select
-            disabled={!isHost}
-            value={room.settings.difficulty}
+            disabled={!isHost || room.settings.difficulty === "custom"}
+            value={room.settings.difficulty === "custom" ? "easy" : room.settings.difficulty}
             onChange={(event) => updateSetting("difficulty", event.target.value)}
           >
             <option value="easy">Легкий</option>
             <option value="medium">Средний</option>
             <option value="hard">Нереальный</option>
-            <option value="custom">Свой словарь</option>
           </select>
         </label>
         <div className="field">
@@ -550,12 +574,12 @@ function MineSubmission({
             </span>
           )}
           <span>
-            Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}. Список мин скрыт.
+            Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}.
             {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
           </span>
         </div>
       ) : !round.canSubmitMines ? (
-        <p className="notice">Минеры придумывают мины. Вам пока видно только количество мин: {round.mineCount}.</p>
+        <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
       ) : (
         <>
           <form className="mine-form" onSubmit={addMine}>
