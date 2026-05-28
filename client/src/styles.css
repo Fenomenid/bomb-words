@@ -236,7 +236,8 @@ select:focus {
 
 .primary,
 .secondary,
-.success {
+.success,
+.danger {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -261,6 +262,11 @@ select:focus {
 .success {
   color: white;
   background: #2f7d4f;
+}
+
+.danger {
+  color: white;
+  background: #b12a3d;
 }
 
 .compact {
@@ -328,6 +334,15 @@ select:focus {
   font-weight: 700;
 }
 
+.mine-word b {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #9b1c31;
+  background: #ffe1e6;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .mine-edit-button,
 .icon-button {
   display: inline-grid;
@@ -362,10 +377,16 @@ select:focus {
   color: #ffffff;
   background: #9b1c31;
   border-color: #9b1c31;
+  box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.16);
 }
 
 .mine-chip.triggered .mine-word span {
   color: #ffe1e6;
+}
+
+.mine-chip.triggered .mine-word b {
+  color: #9b1c31;
+  background: #ffffff;
 }
 
 .timer {
@@ -609,6 +630,10 @@ select:focus {
   background: #39985f;
 }
 
+:root[data-theme="dark"] .danger {
+  background: #c23b51;
+}
+
 :root[data-theme="dark"] .timer {
   color: #dff4ff;
   background: #173447;
@@ -721,7 +746,8 @@ select:focus {
   .compact,
   .primary,
   .secondary,
-  .success {
+  .success,
+  .danger {
     width: 100%;
   }
 }

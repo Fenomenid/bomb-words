@@ -189,8 +189,8 @@ export class RoomManager {
 
   startExplaining(roomId: string, socketId: string): Room {
     const room = this.getRoom(roomId);
-    this.assertHost(room, socketId);
     const round = this.requireRound(room);
+    this.assertHostOrExplainer(room, socketId);
     if (room.phase !== "mine_submission") {
       throw new GameError("Нельзя начать объяснение в этой фазе");
     }
@@ -444,6 +444,17 @@ export class RoomManager {
     }
   }
 
+  private assertHostOrExplainer(room: Room, socketId: string): void {
+    const round = this.requireRound(room);
+    const player = room.players.find((candidate) => candidate.id === socketId);
+    if (!player) {
+      throw new GameError("Игрок не найден");
+    }
+    if (!player.isHost && player.id !== round.explainerId) {
+      throw new GameError("Действие доступно хосту или объясняющему");
+    }
+  }
+
   private assertCanControlActiveRound(room: Room, socketId: string): void {
     const round = this.requireRound(room);
     if (room.phase !== "explaining" || round.status !== "active") {
@@ -453,8 +464,8 @@ export class RoomManager {
     if (!player) {
       throw new GameError("Игрок не найден");
     }
-    if (!player.isHost && player.id !== round.guesserId && player.id !== round.explainerId) {
-      throw new GameError("Недостаточно прав для завершения раунда");
+    if (player.id !== round.guesserId && player.id !== round.explainerId) {
+      throw new GameError("Раунд как неугаданный отмечают объясняющий или отгадывающий");
     }
   }
 
@@ -467,8 +478,8 @@ export class RoomManager {
     if (!player) {
       throw new GameError("Игрок не найден");
     }
-    if (player.id === round.explainerId) {
-      throw new GameError("Объясняющий не подтверждает угадывание");
+    if (player.id === round.guesserId || (player.isHost && player.id !== round.explainerId)) {
+      throw new GameError("Угадывание подтверждают объясняющий или минеры");
     }
   }
 

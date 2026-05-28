@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { io } from "socket.io-client";
-import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
+import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, Siren, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
 import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
@@ -445,7 +445,7 @@ function MineSubmission({
         </>
       )}
 
-      {isHost && (
+      {(isHost || isExplainer) && (
         <button className="primary" disabled={round.mineCount === 0} onClick={() => socket.emit("round:start", { roomId: room.id })}>
           <Timer size={18} />
           Начать объяснение
@@ -470,9 +470,9 @@ function Explaining({
 }) {
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round);
-  const canConfirmSuccess = !isExplainer;
-  const canSkip = isHost || isGuesser || isExplainer;
   const isMiner = !isExplainer && !isGuesser;
+  const canConfirmSuccess = isExplainer || isMiner;
+  const canSkip = isGuesser || isExplainer;
   useTimerWarning(secondsLeft, room.phase, round.isTimerPaused, soundEnabled);
 
   return (
@@ -502,9 +502,9 @@ function Explaining({
         )}
         {canSkip && (
           <>
-            <button className="secondary" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
-              <SkipForward size={18} />
-              Скип
+            <button className="danger" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
+              <Siren size={18} />
+              Не угадали
             </button>
           </>
         )}
@@ -699,10 +699,18 @@ function MineChip({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(mine.word);
+  const [pendingTriggered, setPendingTriggered] = useState(false);
+  const effectiveTriggered = Boolean(isTriggered || pendingTriggered);
 
   useEffect(() => {
     setDraft(mine.word);
   }, [mine.word]);
+
+  useEffect(() => {
+    if (isTriggered) {
+      setPendingTriggered(false);
+    }
+  }, [isTriggered]);
 
   function saveEdit() {
     if (!roomId) return;
@@ -736,18 +744,23 @@ function MineChip({
         "mine-chip",
         clickable ? "clickable" : "",
         editable ? "editable" : "",
-        isTriggered ? "triggered" : "",
+        effectiveTriggered ? "triggered" : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <button
         className="mine-word"
-        disabled={!clickable}
-        onClick={() => clickable && socket.emit("round:mine", { roomId, mineWord: mine.word })}
+        disabled={!clickable || effectiveTriggered}
+        onClick={() => {
+          if (!clickable) return;
+          setPendingTriggered(true);
+          socket.emit("round:mine", { roomId, mineWord: mine.word });
+        }}
       >
         {mine.word}
         <span>{mine.authorName}</span>
+        {effectiveTriggered && <b>сработала</b>}
       </button>
       {editable && (
         <button className="mine-edit-button" type="button" aria-label="Редактировать мину" onClick={() => setIsEditing(true)}>
