@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { io } from "socket.io-client";
-import { Bomb, Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, Siren, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
+import { Bomb, Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, Siren, SkipForward, Sun, Timer, Trophy, UserMinus, Users, Volume2, VolumeX, X } from "lucide-react";
 import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
@@ -150,11 +150,18 @@ function App() {
     socket.on("timer", (timer: TimerSnapshot) => {
       setServerTimer(timer);
     });
+    socket.on("kicked", ({ message }: { message: string }) => {
+      setRoom(null);
+      setServerTimer(null);
+      setError(message);
+      window.history.replaceState(null, "", "/");
+    });
     socket.on("error", ({ message }: { message: string }) => setError(message));
 
     return () => {
       socket.off("room");
       socket.off("timer");
+      socket.off("kicked");
       socket.off("error");
     };
   }, []);
@@ -304,7 +311,20 @@ function App() {
                             : "В лобби"}
                   </span>
                 </div>
-                <b>{player.score}</b>
+                <div className="player-row-actions">
+                  <b>{player.score}</b>
+                  {isHost && player.id !== room.selfId && (
+                    <button
+                      className="kick-button"
+                      type="button"
+                      aria-label={`Кикнуть ${player.name}`}
+                      title="Кикнуть игрока"
+                      onClick={() => socket.emit("player:kick", { roomId: room.id, playerId: player.id })}
+                    >
+                      <UserMinus size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -94,7 +94,7 @@ export class RoomManager {
     return { room, disconnectedPlayerId: disconnectedPlayer.id };
   }
 
-  removeDisconnectedPlayer(roomId: string, playerId: string): { room?: Room; deletedRoomId?: string } {
+  removeDisconnectedPlayer(roomId: string, playerId: string): { room?: Room } {
     const room = this.rooms.get(roomId.toUpperCase());
     if (!room) {
       return {};
@@ -109,8 +109,8 @@ export class RoomManager {
     room.explainerQueue = room.explainerQueue.filter((candidateId) => candidateId !== playerId);
     room.guesserQueue = room.guesserQueue.filter((candidateId) => candidateId !== playerId);
     if (room.players.length === 0) {
-      this.rooms.delete(room.id);
-      return { deletedRoomId: room.id };
+      this.resetEmptyRoom(room);
+      return { room };
     }
 
     this.ensureConnectedHost(room);
@@ -124,6 +124,23 @@ export class RoomManager {
     }
 
     return { room };
+  }
+
+  kickPlayer(roomId: string, hostSocketId: string, targetPlayerId: string): Room {
+    const room = this.getRoom(roomId);
+    this.assertHost(room, hostSocketId);
+    if (hostSocketId === targetPlayerId) {
+      throw new GameError("Хост не может кикнуть себя");
+    }
+
+    const targetPlayer = room.players.find((player) => player.id === targetPlayerId);
+    if (!targetPlayer) {
+      throw new GameError("Игрок не найден");
+    }
+
+    this.removePlayerFromRoom(room, targetPlayerId);
+    this.socketRooms.delete(targetPlayerId);
+    return room;
   }
 
   getRoomIdForSocket(socketId: string): string | undefined {
@@ -723,6 +740,35 @@ export class RoomManager {
 
   private connectedPlayers(room: Room): Player[] {
     return room.players.filter((player) => player.isConnected);
+  }
+
+  private removePlayerFromRoom(room: Room, playerId: string): void {
+    room.players = room.players.filter((candidate) => candidate.id !== playerId);
+    room.explainerQueue = room.explainerQueue.filter((candidateId) => candidateId !== playerId);
+    room.guesserQueue = room.guesserQueue.filter((candidateId) => candidateId !== playerId);
+
+    if (room.players.length === 0) {
+      this.resetEmptyRoom(room);
+      return;
+    }
+
+    this.ensureConnectedHost(room);
+    const round = room.currentRound;
+    const activeRoleRemoved = round?.explainerId === playerId || round?.guesserId === playerId;
+    if (round && activeRoleRemoved && room.phase !== "round_result" && room.phase !== "game_result") {
+      round.status = "skipped";
+      room.phase = "round_result";
+      this.startPhaseTimer(round, room.settings.resultDurationSec);
+    }
+  }
+
+  private resetEmptyRoom(room: Room): void {
+    room.phase = "lobby";
+    room.currentRound = undefined;
+    room.roundIndex = 0;
+    room.explainerQueue = [];
+    room.guesserQueue = [];
+    room.usedWords = [];
   }
 
   private ensureConnectedHost(room: Room): void {

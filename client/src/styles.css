@@ -285,6 +285,27 @@ h2 {
   font-size: 22px;
 }
 
+.player-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kick-button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #f0c2ca;
+  border-radius: 999px;
+  color: #9b1c31;
+  background: #fff0f2;
+}
+
+.kick-button:hover {
+  background: #ffe1e6;
+}
+
 .stage {
   min-height: 480px;
   display: flex;
@@ -852,6 +873,12 @@ textarea {
 :root[data-theme="dark"] .player-row.role-guesser {
   background: #30250f;
   border-color: #a87519;
+}
+
+:root[data-theme="dark"] .kick-button {
+  color: #ffdbe1;
+  background: #3b1620;
+  border-color: #793044;
 }
 
 :root[data-theme="dark"] .role-pill {

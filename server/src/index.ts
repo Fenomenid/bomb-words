@@ -76,6 +76,18 @@ io.on("connection", (socket) => {
     handle(socket.id, () => emitRoom(rooms.updateCustomWords(roomId, socket.id, wordsText)));
   });
 
+  socket.on("player:kick", ({ roomId, playerId }: { roomId: string; playerId: string }) => {
+    handle(socket.id, () => {
+      const room = rooms.kickPlayer(roomId, socket.id, playerId);
+      clearReconnectTimer(room.id, playerId);
+      io.to(playerId).emit("kicked", { message: "Хост удалил вас из комнаты" });
+      const kickedSocket = io.sockets.sockets.get(playerId);
+      kickedSocket?.leave(room.id);
+      schedulePhaseTimer(room);
+      emitRoom(room);
+    });
+  });
+
   socket.on("mine:add", ({ roomId, word }: { roomId: string; word: string }) => {
     handle(socket.id, () => emitRoom(rooms.addMine(roomId, socket.id, word)));
   });
@@ -150,9 +162,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const previousRoomId = rooms.getRoomIdForSocket(socket.id);
     const result = rooms.leaveBySocket(socket.id);
-    if (previousRoomId && result.deletedRoomId) {
-      clearRoundTimer(previousRoomId);
-    }
     if (previousRoomId && result.disconnectedPlayerId) {
       scheduleReconnectCleanup(previousRoomId, result.disconnectedPlayerId);
     }
@@ -256,10 +265,6 @@ function scheduleReconnectCleanup(roomId: string, playerId: string): void {
     setTimeout(() => {
       const result = rooms.removeDisconnectedPlayer(roomId, playerId);
       reconnectTimers.delete(reconnectTimerKey(roomId, playerId));
-      if (result.deletedRoomId) {
-        clearRoundTimer(result.deletedRoomId);
-        return;
-      }
       if (result.room) {
         schedulePhaseTimer(result.room);
         emitRoom(result.room);
