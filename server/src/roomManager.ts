@@ -526,12 +526,19 @@ export class RoomManager {
 
   private pickRoundRoles(room: Room): { explainerId: string; guesserId: string } {
     const playerIds = this.connectedPlayers(room).map((player) => player.id);
+    const previousExplainerId = room.currentRound?.explainerId;
+    const previousGuesserId = room.currentRound?.guesserId;
+
     room.explainerQueue = this.normalizeRoleQueue(room.explainerQueue, playerIds);
     if (room.explainerQueue.length === 0) {
       room.explainerQueue = shuffle(playerIds);
     }
 
-    const explainerId = room.explainerQueue.shift();
+    const explainerId = this.takePreferredQueuedPlayer(
+      room.explainerQueue,
+      playerIds,
+      previousExplainerId ? new Set([previousExplainerId]) : new Set(),
+    );
     if (!explainerId) {
       throw new GameError("Нет игроков для раунда");
     }
@@ -542,7 +549,11 @@ export class RoomManager {
       room.guesserQueue = shuffle(guesserCandidates);
     }
 
-    let guesserId = room.guesserQueue.shift();
+    let guesserId = this.takePreferredQueuedPlayer(
+      room.guesserQueue,
+      guesserCandidates,
+      previousGuesserId ? new Set([previousGuesserId]) : new Set(),
+    );
     if (!guesserId || guesserId === explainerId) {
       guesserId = guesserCandidates[Math.floor(Math.random() * guesserCandidates.length)];
     }
@@ -551,6 +562,31 @@ export class RoomManager {
     }
 
     return { explainerId, guesserId };
+  }
+
+  private takePreferredQueuedPlayer(queue: string[], candidates: string[], disallowed: Set<string>): string | undefined {
+    const candidateSet = new Set(candidates);
+    const preferredIndex = queue.findIndex((playerId) => candidateSet.has(playerId) && !disallowed.has(playerId));
+    if (preferredIndex >= 0) {
+      return queue.splice(preferredIndex, 1)[0];
+    }
+
+    const allowedCandidates = candidates.filter((playerId) => !disallowed.has(playerId));
+    if (allowedCandidates.length > 0) {
+      const selectedPlayerId = allowedCandidates[Math.floor(Math.random() * allowedCandidates.length)];
+      const queuedIndex = queue.indexOf(selectedPlayerId);
+      if (queuedIndex >= 0) {
+        queue.splice(queuedIndex, 1);
+      }
+      return selectedPlayerId;
+    }
+
+    const fallbackIndex = queue.findIndex((playerId) => candidateSet.has(playerId));
+    if (fallbackIndex >= 0) {
+      return queue.splice(fallbackIndex, 1)[0];
+    }
+
+    return undefined;
   }
 
   private normalizeRoleQueue(queue: string[], playerIds: string[]): string[] {

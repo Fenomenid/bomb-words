@@ -1086,13 +1086,6 @@ function MineProgress({ filled, total, entries = [] }: { filled: number; total: 
           {safeFilled}/{safeTotal}
         </strong>
       </div>
-      <div className="mine-slots">
-        {Array.from({ length: safeTotal }, (_, index) => (
-          <span key={index} className={index < safeFilled ? "mine-slot filled" : "mine-slot"} aria-hidden="true">
-            <Bomb size={15} />
-          </span>
-        ))}
-      </div>
       {entries.length > 0 && (
         <div className="miner-progress-list">
           {entries.map((entry) => {
@@ -1102,7 +1095,9 @@ function MineProgress({ filled, total, entries = [] }: { filled: number; total: 
                 <span>{entry.playerName}</span>
                 <div className="miner-slots" aria-label={`${entry.playerName}: ${submitted} из ${entry.max}`}>
                   {Array.from({ length: entry.max }, (_, index) => (
-                    <i key={index} className={index < submitted ? "miner-slot filled" : "miner-slot"} aria-hidden="true" />
+                    <span key={index} className={index < submitted ? "miner-slot filled" : "miner-slot"} aria-hidden="true">
+                      <Bomb size={12} />
+                    </span>
                   ))}
                 </div>
                 <strong>

@@ -577,37 +577,6 @@ textarea {
   color: #202633;
 }
 
-.mine-slots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.mine-slot {
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid #d3dae1;
-  border-radius: 999px;
-  color: #9aa3af;
-  background: #eceff1;
-  transition:
-    transform 160ms ease,
-    color 160ms ease,
-    background 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.mine-slot.filled {
-  color: #ffffff;
-  background: #4d7f92;
-  border-color: #4d7f92;
-  box-shadow: 0 8px 18px rgba(77, 127, 146, 0.18);
-  animation: mine-slot-fill 220ms ease both;
-}
-
 .miner-progress-list {
   display: grid;
   gap: 8px;
@@ -639,19 +608,32 @@ textarea {
 
 .miner-slots {
   display: inline-flex;
-  gap: 5px;
+  gap: 6px;
 }
 
 .miner-slot {
-  width: 11px;
-  height: 11px;
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d3dae1;
   border-radius: 999px;
-  background: #d5dce3;
+  color: #9aa3af;
+  background: #eceff1;
+  transition:
+    transform 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .miner-slot.filled {
+  color: #ffffff;
   background: #4d7f92;
+  border-color: #4d7f92;
   box-shadow: 0 0 0 3px rgba(77, 127, 146, 0.13);
+  animation: mine-slot-fill 220ms ease both;
 }
 
 .mine-chip {
@@ -1124,19 +1106,6 @@ textarea {
   color: #e7edf6;
 }
 
-:root[data-theme="dark"] .mine-slot {
-  color: #607189;
-  background: #101722;
-  border-color: #31435b;
-}
-
-:root[data-theme="dark"] .mine-slot.filled {
-  color: #ffffff;
-  background: #2f8eb7;
-  border-color: #2f8eb7;
-  box-shadow: 0 8px 18px rgba(47, 142, 183, 0.22);
-}
-
 :root[data-theme="dark"] .miner-progress-row {
   background: #101722;
   border-color: #31435b;
@@ -1151,11 +1120,15 @@ textarea {
 }
 
 :root[data-theme="dark"] .miner-slot {
+  color: #607189;
   background: #31435b;
+  border-color: #3d526e;
 }
 
 :root[data-theme="dark"] .miner-slot.filled {
+  color: #ffffff;
   background: #2f8eb7;
+  border-color: #2f8eb7;
   box-shadow: 0 0 0 3px rgba(47, 142, 183, 0.16);
 }
 
