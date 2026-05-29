@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { io } from "socket.io-client";
-import { Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, Siren, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
+import { Bomb, Check, Copy, Crown, Edit3, Flag, HelpCircle, KeyRound, LogIn, Medal, Moon, Pause, Play, Plus, RotateCcw, Save, Siren, SkipForward, Sun, Timer, Trophy, Users, Volume2, VolumeX, X } from "lucide-react";
 import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
@@ -12,6 +12,7 @@ type Player = {
   name: string;
   score: number;
   isHost: boolean;
+  isConnected: boolean;
 };
 
 type Mine = {
@@ -70,6 +71,13 @@ type RoomSnapshot = {
   };
 };
 
+type TimerSnapshot = {
+  roomId: string;
+  phase: RoomSnapshot["phase"];
+  remainingSec: number;
+  isPaused: boolean;
+};
+
 type SettingsDraft = {
   targetScore: string;
   maxRounds: string;
@@ -92,6 +100,8 @@ function settingsToDraft(settings: RoomSnapshot["settings"]): SettingsDraft {
 
 function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
+  const [serverTimer, setServerTimer] = useState<TimerSnapshot | null>(null);
+  const autoJoinAttemptedRef = useRef(false);
   const [error, setError] = useState("");
   const [playerName, setPlayerName] = useState(localStorage.getItem("playerName") ?? "");
   const [mineWord, setMineWord] = useState("");
@@ -110,10 +120,15 @@ function App() {
   const self = room?.players.find((player) => player.id === room.selfId);
   const isHost = Boolean(self?.isHost);
   const round = room?.currentRound;
+  const connectedPlayersCount = room?.players.filter((player) => player.isConnected).length ?? 0;
+  const syncedSeconds =
+    room && serverTimer?.roomId === room.id && serverTimer.phase === room.phase
+      ? serverTimer.remainingSec
+      : undefined;
   const isExplainer = Boolean(round && room?.selfId === round.explainerId);
   const isGuesser = Boolean(round && room?.selfId === round.guesserId);
   const hasEnoughCustomWords = Boolean(room && (room.settings.difficulty !== "custom" || room.customWordCount >= 10));
-  const canStartGame = Boolean(room && isHost && room.players.length >= 3 && hasEnoughCustomWords);
+  const canStartGame = Boolean(room && isHost && connectedPlayersCount >= 3 && hasEnoughCustomWords);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -132,13 +147,25 @@ function App() {
         window.history.replaceState(null, "", `/room/${snapshot.id}`);
       }
     });
+    socket.on("timer", (timer: TimerSnapshot) => {
+      setServerTimer(timer);
+    });
     socket.on("error", ({ message }: { message: string }) => setError(message));
 
     return () => {
       socket.off("room");
+      socket.off("timer");
       socket.off("error");
     };
   }, []);
+
+  useEffect(() => {
+    if (room || autoJoinAttemptedRef.current || !roomIdFromUrl || !playerName.trim()) {
+      return;
+    }
+    autoJoinAttemptedRef.current = true;
+    socket.emit("room:join", { roomId: roomIdFromUrl, playerName });
+  }, [playerName, room, roomIdFromUrl]);
 
   function rememberName() {
     localStorage.setItem("playerName", playerName.trim());
@@ -265,7 +292,17 @@ function App() {
                     {player.id === room.selfId && <span className="self-mark">(Вы)</span>}
                     {player.isHost && <KeyRound size={15} aria-label="Хост" />}
                   </strong>
-                  <span>{player.id === round?.explainerId ? "Объясняет" : player.id === round?.guesserId ? "Угадывает" : round ? "Минер" : "В лобби"}</span>
+                  <span>
+                    {!player.isConnected
+                      ? "Не в сети"
+                      : player.id === round?.explainerId
+                        ? "Объясняет"
+                        : player.id === round?.guesserId
+                          ? "Угадывает"
+                          : round
+                            ? "Минер"
+                            : "В лобби"}
+                  </span>
                 </div>
                 <b>{player.score}</b>
               </div>
@@ -283,6 +320,7 @@ function App() {
               room={room}
               isExplainer={isExplainer}
               isHost={isHost}
+              syncedSeconds={syncedSeconds}
               mineWord={mineWord}
               setMineWord={setMineWord}
               addMine={addMine}
@@ -290,10 +328,10 @@ function App() {
           )}
 
           {room.phase === "explaining" && round && (
-            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} />
+            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} syncedSeconds={syncedSeconds} />
           )}
 
-          {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} />}
+          {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} syncedSeconds={syncedSeconds} />}
           {room.phase === "game_result" && <GameResult room={room} isHost={isHost} />}
         </section>
       </div>
@@ -375,7 +413,7 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
     <div className="stage">
       <p className="eyebrow">Лобби</p>
       <h2>Ожидание игроков</h2>
-      <p className="muted">Минимум 3 игрока. Сейчас в комнате: {room.players.length}.</p>
+      <p className="muted">Минимум 3 игрока. Сейчас в сети: {room.players.filter((player) => player.isConnected).length}.</p>
       <div className="settings-grid">
         <div className="field">
           <span>Источник слов</span>
@@ -569,6 +607,7 @@ function MineSubmission({
   room,
   isExplainer,
   isHost,
+  syncedSeconds,
   mineWord,
   setMineWord,
   addMine,
@@ -576,13 +615,14 @@ function MineSubmission({
   room: RoomSnapshot;
   isExplainer: boolean;
   isHost: boolean;
+  syncedSeconds?: number;
   mineWord: string;
   setMineWord: (value: string) => void;
   addMine: (event: React.FormEvent) => void;
 }) {
   const round = room.currentRound!;
   const remaining = room.settings.minesPerPlayer - round.myMineCount;
-  const secondsLeft = useCountdown(round);
+  const secondsLeft = useCountdown(round, syncedSeconds);
   const totalMineSlots = Math.max(0, (room.players.length - 2) * room.settings.minesPerPlayer);
   const allMinesSubmitted = totalMineSlots > 0 && round.mineCount >= totalMineSlots;
 
@@ -644,15 +684,17 @@ function Explaining({
   isGuesser,
   isHost,
   soundEnabled,
+  syncedSeconds,
 }: {
   room: RoomSnapshot;
   isExplainer: boolean;
   isGuesser: boolean;
   isHost: boolean;
   soundEnabled: boolean;
+  syncedSeconds?: number;
 }) {
   const round = room.currentRound!;
-  const secondsLeft = useCountdown(round);
+  const secondsLeft = useCountdown(round, syncedSeconds);
   const isMiner = !isExplainer && !isGuesser;
   const canConfirmSuccess = isExplainer;
   const canSkip = isGuesser || isExplainer;
@@ -696,9 +738,9 @@ function Explaining({
   );
 }
 
-function RoundResult({ room, isHost }: { room: RoomSnapshot; isHost: boolean }) {
+function RoundResult({ room, isHost, syncedSeconds }: { room: RoomSnapshot; isHost: boolean; syncedSeconds?: number }) {
   const round = room.currentRound!;
-  const secondsLeft = useCountdown(round);
+  const secondsLeft = useCountdown(round, syncedSeconds);
   const hasTriggeredMines = (round.triggeredMines?.length ?? 0) > 0;
   const statusText = getRoundResultTitle(round.status, hasTriggeredMines);
 
@@ -954,7 +996,11 @@ function MineChip({
       >
         {mine.word}
         <span>{mine.authorName}</span>
-        {effectiveTriggered && <b>сработала</b>}
+        {effectiveTriggered && (
+          <b className="mine-trigger-icon" title="Сработала" aria-label="Сработала">
+            <Bomb size={15} />
+          </b>
+        )}
       </button>
       {editable && (
         <button className="mine-edit-button" type="button" aria-label="Редактировать мину" onClick={() => setIsEditing(true)}>
@@ -1002,6 +1048,7 @@ function getPlayerRowClassName(
   return [
     "player-row",
     player.id === selfId ? "self" : "",
+    !player.isConnected ? "offline" : "",
     player.id === round?.explainerId ? "role-explainer" : "",
     player.id === round?.guesserId ? "role-guesser" : "",
   ]
@@ -1009,13 +1056,17 @@ function getPlayerRowClassName(
     .join(" ");
 }
 
-function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>) {
+function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>, syncedSeconds?: number) {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(interval);
   }, []);
+
+  if (syncedSeconds !== undefined) {
+    return syncedSeconds;
+  }
 
   if (round.isTimerPaused && round.timerRemainingMs !== undefined) {
     return Math.max(0, Math.ceil(round.timerRemainingMs / 1000));

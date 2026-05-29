@@ -241,6 +241,11 @@ h2 {
   transform: translateX(2px);
 }
 
+.player-row.offline {
+  opacity: 0.58;
+  filter: grayscale(0.35);
+}
+
 .player-row div {
   display: grid;
   gap: 3px;
@@ -540,11 +545,13 @@ textarea {
 }
 
 .mine-word b {
-  padding: 3px 7px;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   color: #9b1c31;
   background: #ffe1e6;
-  font-size: 12px;
   line-height: 1;
 }
 

@@ -8,6 +8,7 @@ export type Player = {
   name: string;
   score: number;
   isHost: boolean;
+  isConnected: boolean;
 };
 
 export type Mine = {

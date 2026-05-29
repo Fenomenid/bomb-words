@@ -38,6 +38,9 @@ const io = new Server(server, {
 
 const rooms = new RoomManager();
 const timers = new Map<string, NodeJS.Timeout>();
+const timerTicks = new Map<string, NodeJS.Timeout>();
+const reconnectTimers = new Map<string, NodeJS.Timeout>();
+const RECONNECT_GRACE_MS = 5 * 60_000;
 
 io.on("connection", (socket) => {
   socket.on("room:create", ({ playerName }: { playerName: string }) => {
@@ -51,6 +54,7 @@ io.on("connection", (socket) => {
   socket.on("room:join", ({ roomId, playerName }: { roomId: string; playerName: string }) => {
     handle(socket.id, () => {
       const room = rooms.joinRoom(socket.id, roomId, playerName);
+      clearReconnectTimer(room.id, socket.id);
       socket.join(room.id);
       emitRoom(room);
     });
@@ -149,6 +153,9 @@ io.on("connection", (socket) => {
     if (previousRoomId && result.deletedRoomId) {
       clearRoundTimer(previousRoomId);
     }
+    if (previousRoomId && result.disconnectedPlayerId) {
+      scheduleReconnectCleanup(previousRoomId, result.disconnectedPlayerId);
+    }
     if (result.room) {
       if (rooms.isTimerPaused(result.room)) {
         clearRoundTimer(result.room.id);
@@ -174,8 +181,26 @@ function handle(socketId: string, callback: () => void): void {
 
 function emitRoom(room: Room): void {
   for (const player of room.players) {
+    if (!player.isConnected) {
+      continue;
+    }
     io.to(player.id).emit("room", rooms.getSnapshot(room, player.id, publicClientOrigin()));
   }
+  emitTimer(room);
+}
+
+function emitTimer(room: Room): void {
+  const remainingSec = rooms.getTimerRemainingSec(room);
+  if (remainingSec === undefined) {
+    return;
+  }
+
+  io.to(room.id).emit("timer", {
+    roomId: room.id,
+    phase: room.phase,
+    remainingSec,
+    isPaused: rooms.isTimerPaused(room),
+  });
 }
 
 function publicClientOrigin(): string | undefined {
@@ -207,6 +232,8 @@ function schedulePhaseTimer(room: Room): void {
       }
     }, delayMs),
   );
+  emitTimer(room);
+  timerTicks.set(room.id, setInterval(() => emitTimer(room), 1000));
 }
 
 function clearRoundTimer(roomId: string): void {
@@ -215,4 +242,42 @@ function clearRoundTimer(roomId: string): void {
     clearTimeout(timer);
     timers.delete(roomId);
   }
+  const timerTick = timerTicks.get(roomId);
+  if (timerTick) {
+    clearInterval(timerTick);
+    timerTicks.delete(roomId);
+  }
+}
+
+function scheduleReconnectCleanup(roomId: string, playerId: string): void {
+  clearReconnectTimer(roomId, playerId);
+  reconnectTimers.set(
+    reconnectTimerKey(roomId, playerId),
+    setTimeout(() => {
+      const result = rooms.removeDisconnectedPlayer(roomId, playerId);
+      reconnectTimers.delete(reconnectTimerKey(roomId, playerId));
+      if (result.deletedRoomId) {
+        clearRoundTimer(result.deletedRoomId);
+        return;
+      }
+      if (result.room) {
+        schedulePhaseTimer(result.room);
+        emitRoom(result.room);
+      }
+    }, RECONNECT_GRACE_MS),
+  );
+}
+
+function clearReconnectTimer(roomId: string, playerId: string): void {
+  const key = reconnectTimerKey(roomId, playerId);
+  const timer = reconnectTimers.get(key);
+  if (!timer) {
+    return;
+  }
+  clearTimeout(timer);
+  reconnectTimers.delete(key);
+}
+
+function reconnectTimerKey(roomId: string, playerId: string): string {
+  return `${roomId}:${playerId}`;
 }

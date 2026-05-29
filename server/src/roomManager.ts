@@ -51,12 +51,27 @@ export class RoomManager {
       return room;
     }
 
+    const normalizedName = normalizePlayerName(playerName);
+    const reconnectingPlayer = room.players.find(
+      (player) => !player.isConnected && normalizePlayerName(player.name) === normalizedName,
+    );
+    if (reconnectingPlayer) {
+      this.replacePlayerId(room, reconnectingPlayer.id, socketId);
+      reconnectingPlayer.id = socketId;
+      reconnectingPlayer.name = playerName.trim().slice(0, 32);
+      reconnectingPlayer.isConnected = true;
+      this.ensureConnectedHost(room);
+      this.socketRooms.set(socketId, room.id);
+      return room;
+    }
+
     room.players.push(this.createPlayer(socketId, playerName, room.players.length === 0));
+    this.ensureConnectedHost(room);
     this.socketRooms.set(socketId, room.id);
     return room;
   }
 
-  leaveBySocket(socketId: string): { room?: Room; removedPlayerId?: string; deletedRoomId?: string } {
+  leaveBySocket(socketId: string): { room?: Room; disconnectedPlayerId?: string; deletedRoomId?: string } {
     const roomId = this.socketRooms.get(socketId);
     if (!roomId) {
       return {};
@@ -68,26 +83,47 @@ export class RoomManager {
       return {};
     }
 
-    const removedPlayer = room.players.find((player) => player.id === socketId);
-    room.players = room.players.filter((player) => player.id !== socketId);
-    room.explainerQueue = room.explainerQueue.filter((playerId) => playerId !== socketId);
-    room.guesserQueue = room.guesserQueue.filter((playerId) => playerId !== socketId);
+    const disconnectedPlayer = room.players.find((player) => player.id === socketId);
+    if (!disconnectedPlayer) {
+      return {};
+    }
+
+    disconnectedPlayer.isConnected = false;
+    this.ensureConnectedHost(room);
+
+    return { room, disconnectedPlayerId: disconnectedPlayer.id };
+  }
+
+  removeDisconnectedPlayer(roomId: string, playerId: string): { room?: Room; deletedRoomId?: string } {
+    const room = this.rooms.get(roomId.toUpperCase());
+    if (!room) {
+      return {};
+    }
+
+    const player = room.players.find((candidate) => candidate.id === playerId);
+    if (!player || player.isConnected) {
+      return {};
+    }
+
+    room.players = room.players.filter((candidate) => candidate.id !== playerId);
+    room.explainerQueue = room.explainerQueue.filter((candidateId) => candidateId !== playerId);
+    room.guesserQueue = room.guesserQueue.filter((candidateId) => candidateId !== playerId);
     if (room.players.length === 0) {
-      this.rooms.delete(roomId);
-      return { deletedRoomId: roomId, removedPlayerId: socketId };
+      this.rooms.delete(room.id);
+      return { deletedRoomId: room.id };
     }
 
-    if (!room.players.some((player) => player.isHost)) {
-      room.players[0].isHost = true;
-    }
+    this.ensureConnectedHost(room);
 
-    if (room.currentRound?.explainerId === socketId && room.phase !== "round_result" && room.phase !== "game_result") {
-      room.currentRound.status = "skipped";
+    const round = room.currentRound;
+    const activeRoleDisconnected = round?.explainerId === playerId || round?.guesserId === playerId;
+    if (round && activeRoleDisconnected && room.phase !== "round_result" && room.phase !== "game_result") {
+      round.status = "skipped";
       room.phase = "round_result";
-      this.startPhaseTimer(room.currentRound, room.settings.resultDurationSec);
+      this.startPhaseTimer(round, room.settings.resultDurationSec);
     }
 
-    return { room, removedPlayerId: removedPlayer?.id };
+    return { room };
   }
 
   getRoomIdForSocket(socketId: string): string | undefined {
@@ -99,6 +135,9 @@ export class RoomManager {
     this.assertHost(room, socketId);
     if (room.players.length < MIN_PLAYERS) {
       throw new GameError(`Нужно минимум ${MIN_PLAYERS} игрока`);
+    }
+    if (this.connectedPlayers(room).length < MIN_PLAYERS) {
+      throw new GameError(`Нужно минимум ${MIN_PLAYERS} игрока в сети`);
     }
     if (room.settings.difficulty === "custom" && room.customWords.length < MIN_CUSTOM_WORDS) {
       throw new GameError(`Для своего словаря нужно минимум ${MIN_CUSTOM_WORDS} слов`);
@@ -273,6 +312,20 @@ export class RoomManager {
     return Math.max(0, round.timerEndsAt - Date.now());
   }
 
+  getTimerRemainingSec(room: Room): number | undefined {
+    const round = room.currentRound;
+    if (!round || room.phase === "lobby" || room.phase === "game_result") {
+      return undefined;
+    }
+    if (round.timerPausedAt && round.timerRemainingMs !== undefined) {
+      return Math.max(0, Math.ceil(round.timerRemainingMs / 1000));
+    }
+    if (!round.timerEndsAt) {
+      return undefined;
+    }
+    return Math.max(0, Math.ceil((round.timerEndsAt - Date.now()) / 1000));
+  }
+
   handleTimerElapsed(roomId: string): Room {
     const room = this.getRoom(roomId);
     if (this.isTimerPaused(room)) {
@@ -431,7 +484,7 @@ export class RoomManager {
   }
 
   private pickRoundRoles(room: Room): { explainerId: string; guesserId: string } {
-    const playerIds = room.players.map((player) => player.id);
+    const playerIds = this.connectedPlayers(room).map((player) => player.id);
     room.explainerQueue = this.normalizeRoleQueue(room.explainerQueue, playerIds);
     if (room.explainerQueue.length === 0) {
       room.explainerQueue = shuffle(playerIds);
@@ -497,6 +550,7 @@ export class RoomManager {
       name: trimmedName.slice(0, 32),
       score: 0,
       isHost,
+      isConnected: true,
     };
   }
 
@@ -667,6 +721,54 @@ export class RoomManager {
     return [...room.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
 
+  private connectedPlayers(room: Room): Player[] {
+    return room.players.filter((player) => player.isConnected);
+  }
+
+  private ensureConnectedHost(room: Room): void {
+    const connectedPlayers = this.connectedPlayers(room);
+    if (connectedPlayers.length === 0 || connectedPlayers.some((player) => player.isHost)) {
+      return;
+    }
+    for (const player of room.players) {
+      player.isHost = false;
+    }
+    connectedPlayers[0].isHost = true;
+  }
+
+  private replacePlayerId(room: Room, oldPlayerId: string, newPlayerId: string): void {
+    room.explainerQueue = replaceIdInList(room.explainerQueue, oldPlayerId, newPlayerId);
+    room.guesserQueue = replaceIdInList(room.guesserQueue, oldPlayerId, newPlayerId);
+    const round = room.currentRound;
+    if (!round) {
+      return;
+    }
+    if (round.explainerId === oldPlayerId) {
+      round.explainerId = newPlayerId;
+    }
+    if (round.guesserId === oldPlayerId) {
+      round.guesserId = newPlayerId;
+    }
+    for (const mine of round.mines) {
+      if (mine.authorPlayerId === oldPlayerId) {
+        mine.authorPlayerId = newPlayerId;
+      }
+    }
+    for (const mine of round.triggeredMines) {
+      if (mine.authorPlayerId === oldPlayerId) {
+        mine.authorPlayerId = newPlayerId;
+      }
+    }
+    if (round.resultMine?.authorPlayerId === oldPlayerId) {
+      round.resultMine.authorPlayerId = newPlayerId;
+    }
+    for (const delta of round.scoreDeltas) {
+      if (delta.playerId === oldPlayerId) {
+        delta.playerId = newPlayerId;
+      }
+    }
+  }
+
   private startPhaseTimer(round: Room["currentRound"], durationSec: number): void {
     if (!round) {
       return;
@@ -701,6 +803,14 @@ export class RoomManager {
 
 function normalizeMine(word: string): string {
   return word.trim().toLowerCase();
+}
+
+function normalizePlayerName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function replaceIdInList(items: string[], oldId: string, newId: string): string[] {
+  return items.map((item) => (item === oldId ? newId : item));
 }
 
 function shuffle<T>(items: T[]): T[] {
