@@ -946,8 +946,16 @@ textarea {
 }
 
 :root[data-theme="dark"] .player-row.role-explainer {
-  background: #102b3a;
-  border-color: #2f8eb7;
+  background: linear-gradient(135deg, #123b25, #11251d);
+  border-color: #48d17b;
+  box-shadow:
+    0 0 0 1px rgba(72, 209, 123, 0.18),
+    0 12px 28px rgba(31, 163, 86, 0.22);
+}
+
+:root[data-theme="dark"] .player-row.role-explainer::before {
+  background: #48d17b;
+  box-shadow: 0 0 16px rgba(72, 209, 123, 0.85);
 }
 
 :root[data-theme="dark"] .player-row.role-guesser {
@@ -977,8 +985,13 @@ textarea {
 }
 
 :root[data-theme="dark"] .role-pill-explainer {
-  background: linear-gradient(135deg, #102b3a, #111a27);
-  border-color: #2f8eb7;
+  background: linear-gradient(135deg, #123b25, #111a27);
+  border-color: #48d17b;
+  box-shadow: inset 0 0 0 1px rgba(72, 209, 123, 0.16);
+}
+
+:root[data-theme="dark"] .role-pill-explainer span {
+  color: #9ff3bb;
 }
 
 :root[data-theme="dark"] .role-pill-guesser {
