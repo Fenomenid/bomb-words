@@ -68,6 +68,13 @@ export type PublicMine = Mine & {
   authorName: string;
 };
 
+export type MineProgressEntry = {
+  playerId: string;
+  playerName: string;
+  submitted: number;
+  max: number;
+};
+
 export type RoomSnapshot = {
   id: string;
   phase: RoomPhase;
@@ -93,6 +100,7 @@ export type RoomSnapshot = {
     isTimerPaused: boolean;
     status: RoundStatus;
     mineCount: number;
+    mineProgress: MineProgressEntry[];
     mines?: PublicMine[];
     myMineCount: number;
     canSubmitMines: boolean;

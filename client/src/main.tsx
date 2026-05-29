@@ -30,6 +30,13 @@ type ScoreDelta = {
   reason: string;
 };
 
+type MineProgressEntry = {
+  playerId: string;
+  playerName: string;
+  submitted: number;
+  max: number;
+};
+
 type RoomSnapshot = {
   id: string;
   phase: "lobby" | "mine_submission" | "explaining" | "round_result" | "game_result";
@@ -64,6 +71,7 @@ type RoomSnapshot = {
     isTimerPaused: boolean;
     status: "waiting_mines" | "active" | "success" | "failed" | "skipped" | "timeout";
     mineCount: number;
+    mineProgress: MineProgressEntry[];
     mines?: Mine[];
     myMineCount: number;
     canSubmitMines: boolean;
@@ -117,6 +125,7 @@ function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [serverTimer, setServerTimer] = useState<TimerSnapshot | null>(null);
   const autoJoinAttemptedRef = useRef(false);
+  const lastRoundAlertRef = useRef<string | null>(null);
   const [error, setError] = useState("");
   const [playerName, setPlayerName] = useState(localStorage.getItem("playerName") ?? "");
   const [mineWord, setMineWord] = useState("");
@@ -164,6 +173,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem("soundEnabled", String(soundEnabled));
   }, [soundEnabled]);
+
+  useEffect(() => {
+    if (!room?.currentRound || room.phase !== "mine_submission") {
+      return;
+    }
+
+    const roundAlertKey = `${room.id}:${room.roundIndex}:${room.currentRound.explainerId}:${room.currentRound.guesserId}`;
+    if (lastRoundAlertRef.current === roundAlertKey) {
+      return;
+    }
+
+    lastRoundAlertRef.current = roundAlertKey;
+    if (soundEnabled) {
+      playRoundStartAlert();
+    }
+  }, [room?.id, room?.roundIndex, room?.phase, room?.currentRound?.explainerId, room?.currentRound?.guesserId, soundEnabled]);
 
   useEffect(() => {
     socket.on("room", (snapshot: RoomSnapshot) => {
@@ -719,12 +744,12 @@ function MineSubmission({
               {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
             </span>
           </div>
-          <MineProgress filled={round.mineCount} total={totalMineSlots} />
+          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
         </div>
       ) : !round.canSubmitMines ? (
         <div className="mine-progress-panel">
           <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
-          <MineProgress filled={round.mineCount} total={totalMineSlots} />
+          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
         </div>
       ) : (
         <>
@@ -743,6 +768,7 @@ function MineSubmission({
               Добавить
             </button>
           </form>
+          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
           <MineList mines={round.mines ?? []} editable roomId={room.id} selfId={room.selfId} />
         </>
       )}
@@ -792,7 +818,7 @@ function Explaining({
       ) : (
         <div className="mine-progress-panel">
           <p className="notice">Мин в раунде: {round.mineCount}</p>
-          <MineProgress filled={round.mineCount} total={totalMineSlots} />
+          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
         </div>
       )}
 
@@ -1044,7 +1070,7 @@ function MineList({
   );
 }
 
-function MineProgress({ filled, total }: { filled: number; total: number }) {
+function MineProgress({ filled, total, entries = [] }: { filled: number; total: number; entries?: MineProgressEntry[] }) {
   const safeTotal = Math.max(0, total);
   const safeFilled = Math.min(Math.max(0, filled), safeTotal);
 
@@ -1067,6 +1093,26 @@ function MineProgress({ filled, total }: { filled: number; total: number }) {
           </span>
         ))}
       </div>
+      {entries.length > 0 && (
+        <div className="miner-progress-list">
+          {entries.map((entry) => {
+            const submitted = Math.min(Math.max(0, entry.submitted), Math.max(0, entry.max));
+            return (
+              <div className="miner-progress-row" key={entry.playerId}>
+                <span>{entry.playerName}</span>
+                <div className="miner-slots" aria-label={`${entry.playerName}: ${submitted} из ${entry.max}`}>
+                  {Array.from({ length: entry.max }, (_, index) => (
+                    <i key={index} className={index < submitted ? "miner-slot filled" : "miner-slot"} aria-hidden="true" />
+                  ))}
+                </div>
+                <strong>
+                  {submitted}/{entry.max}
+                </strong>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1277,6 +1323,51 @@ function playTimerTick(secondsLeft: number) {
   oscillator.start(now);
   oscillator.stop(now + duration + 0.02);
   window.setTimeout(() => void audioContext.close(), 240);
+}
+
+function playRoundStartAlert() {
+  const AudioContextClass =
+    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  const audioContext = new AudioContextClass();
+  const masterGain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  const now = audioContext.currentTime;
+  const notes = [
+    { frequency: 523.25, start: 0, duration: 0.16 },
+    { frequency: 659.25, start: 0.18, duration: 0.2 },
+  ];
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(1800, now);
+  masterGain.gain.setValueAtTime(0.0001, now);
+  masterGain.gain.exponentialRampToValueAtTime(0.1, now + 0.02);
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+  filter.connect(masterGain);
+  masterGain.connect(audioContext.destination);
+
+  for (const note of notes) {
+    const oscillator = audioContext.createOscillator();
+    const noteGain = audioContext.createGain();
+    const startAt = now + note.start;
+    const stopAt = startAt + note.duration;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(note.frequency, startAt);
+    oscillator.frequency.exponentialRampToValueAtTime(note.frequency * 0.96, stopAt);
+    noteGain.gain.setValueAtTime(0.0001, startAt);
+    noteGain.gain.exponentialRampToValueAtTime(0.9, startAt + 0.018);
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+    oscillator.connect(noteGain);
+    noteGain.connect(filter);
+    oscillator.start(startAt);
+    oscillator.stop(stopAt + 0.03);
+  }
+
+  window.setTimeout(() => void audioContext.close(), 620);
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

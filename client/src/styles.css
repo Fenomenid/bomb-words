@@ -608,6 +608,52 @@ textarea {
   animation: mine-slot-fill 220ms ease both;
 }
 
+.miner-progress-list {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.miner-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+  background: #fbfbfa;
+}
+
+.miner-progress-row span {
+  min-width: 0;
+  color: #2d3a4c;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.miner-progress-row strong {
+  color: #4e5868;
+  font-size: 13px;
+}
+
+.miner-slots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.miner-slot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #d5dce3;
+}
+
+.miner-slot.filled {
+  background: #4d7f92;
+  box-shadow: 0 0 0 3px rgba(77, 127, 146, 0.13);
+}
+
 .mine-chip {
   display: inline-flex;
   align-items: center;
@@ -1089,6 +1135,28 @@ textarea {
   background: #2f8eb7;
   border-color: #2f8eb7;
   box-shadow: 0 8px 18px rgba(47, 142, 183, 0.22);
+}
+
+:root[data-theme="dark"] .miner-progress-row {
+  background: #101722;
+  border-color: #31435b;
+}
+
+:root[data-theme="dark"] .miner-progress-row span {
+  color: #e7edf6;
+}
+
+:root[data-theme="dark"] .miner-progress-row strong {
+  color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .miner-slot {
+  background: #31435b;
+}
+
+:root[data-theme="dark"] .miner-slot.filled {
+  background: #2f8eb7;
+  box-shadow: 0 0 0 3px rgba(47, 142, 183, 0.16);
 }
 
 :root[data-theme="dark"] .segmented {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Mine, Player, PublicMine, PublicPlayer, Room, RoomSnapshot, RoundStatus } from "./types.js";
+import type { Mine, MineProgressEntry, Player, PublicMine, PublicPlayer, Room, RoomSnapshot, RoundStatus } from "./types.js";
 import { WORD_DICTIONARIES } from "./words.js";
 
 const MIN_PLAYERS = 3;
@@ -493,6 +493,7 @@ export class RoomManager {
             isTimerPaused: Boolean(round.timerPausedAt),
             status: round.status,
             mineCount: round.mines.length,
+            mineProgress: this.getMineProgress(room, round),
             mines: showMines ? this.publicMines(room, round.mines) : undefined,
             myMineCount: round.mines.filter((mine) => mine.authorPlayerId === viewerId).length,
             canSubmitMines: room.phase === "mine_submission" && isMiner,
@@ -860,6 +861,22 @@ export class RoomManager {
       ...mine,
       authorName: this.playerName(room, mine.authorPlayerId),
     }));
+  }
+
+  private getMineProgress(room: Room, round: NonNullable<Room["currentRound"]>): MineProgressEntry[] {
+    const mineCounts = new Map<string, number>();
+    for (const mine of round.mines) {
+      mineCounts.set(mine.authorPlayerId, (mineCounts.get(mine.authorPlayerId) ?? 0) + 1);
+    }
+
+    return room.players
+      .filter((player) => player.id !== round.explainerId && player.id !== round.guesserId)
+      .map((player) => ({
+        playerId: player.id,
+        playerName: player.name,
+        submitted: mineCounts.get(player.id) ?? 0,
+        max: room.settings.minesPerPlayer,
+      }));
   }
 
   private playerName(room: Room, playerId: string): string {
