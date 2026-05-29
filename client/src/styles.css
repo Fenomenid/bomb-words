@@ -1,6 +1,6 @@
 :root {
-  color: #18202f;
-  background: #f5f7fb;
+  color: #202633;
+  background: #eef1f4;
   color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -58,10 +58,10 @@ button:disabled {
 .auth-panel,
 .game-panel,
 .sidebar {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
+  background: #f9faf9;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
-  box-shadow: 0 14px 38px rgba(34, 48, 74, 0.08);
+  box-shadow: 0 14px 34px rgba(38, 48, 62, 0.07);
 }
 
 .auth-panel {
@@ -104,7 +104,7 @@ h2 {
 }
 
 .eyebrow {
-  color: #416378;
+  color: #4e6773;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0;
@@ -113,25 +113,25 @@ h2 {
 }
 
 .muted {
-  color: #627086;
+  color: #697384;
   line-height: 1.5;
 }
 
 .self-label {
-  color: #526177;
+  color: #5f6979;
   font-size: 14px;
   line-height: 1.4;
   margin-top: 8px;
 }
 
 .self-label strong {
-  color: #18202f;
+  color: #202633;
 }
 
 .notice {
-  color: #25435a;
-  background: #eaf4f8;
-  border: 1px solid #c9e1ea;
+  color: #2f5060;
+  background: #e8f0f2;
+  border: 1px solid #cbdde2;
   border-radius: 8px;
   padding: 12px 14px;
   line-height: 1.45;
@@ -141,9 +141,9 @@ h2 {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  color: #1f5d3a;
-  background: #eaf8ef;
-  border-color: #bfe4ca;
+  color: #2f6647;
+  background: #edf5ef;
+  border-color: #c7decf;
 }
 
 .ready-icon {
@@ -158,9 +158,9 @@ h2 {
 }
 
 .error {
-  color: #8a1d2c;
-  background: #ffe8ec;
-  border: 1px solid #f3bbc4;
+  color: #883044;
+  background: #f8e8ec;
+  border: 1px solid #e7c2ca;
   border-radius: 8px;
   padding: 12px 14px;
 }
@@ -196,9 +196,9 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e1e7f0;
+  border: 1px solid #dce2e8;
   border-radius: 8px;
-  background: #fbfcfe;
+  background: #f7f8f8;
   overflow: hidden;
   transition:
     transform 160ms ease,
@@ -216,25 +216,25 @@ h2 {
 }
 
 .player-row.role-explainer {
-  border-color: #9ad6e8;
-  background: #eef9fc;
-  box-shadow: 0 8px 20px rgba(47, 127, 163, 0.12);
+  border-color: #a9ccd7;
+  background: #edf5f7;
+  box-shadow: 0 8px 20px rgba(59, 105, 120, 0.1);
 }
 
 .player-row.role-explainer::before {
   opacity: 1;
-  background: #2f8eb7;
+  background: #4d91a8;
 }
 
 .player-row.role-guesser {
-  border-color: #f1c66d;
-  background: #fff8e8;
-  box-shadow: 0 8px 20px rgba(178, 119, 12, 0.12);
+  border-color: #e0c887;
+  background: #f7f0df;
+  box-shadow: 0 8px 20px rgba(146, 105, 30, 0.1);
 }
 
 .player-row.role-guesser::before {
   opacity: 1;
-  background: #d99016;
+  background: #b88931;
 }
 
 .player-row.self {
@@ -264,18 +264,18 @@ h2 {
 }
 
 .self-mark {
-  color: #236f8f;
+  color: #4d7f92;
   font-size: 12px;
   font-weight: 800;
 }
 
 .player-name svg {
   flex: 0 0 auto;
-  color: #236f8f;
+  color: #4d7f92;
 }
 
 .player-row span {
-  color: #6b778c;
+  color: #697384;
   font-size: 13px;
 }
 
@@ -299,11 +299,11 @@ h2 {
   border: 1px solid #f0c2ca;
   border-radius: 999px;
   color: #9b1c31;
-  background: #fff0f2;
+  background: #f7e8ec;
 }
 
 .kick-button:hover {
-  background: #ffe1e6;
+  background: #efd7de;
 }
 
 .stage {
@@ -327,53 +327,53 @@ h2 {
   display: grid;
   gap: 4px;
   padding: 13px 15px;
-  border: 1px solid #d6dfeb;
+  border: 1px solid #d7dde4;
   border-radius: 999px;
-  background: #f7f9fc;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  background: #f5f6f6;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
 .role-pill span {
-  color: #627086;
+  color: #697384;
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .role-pill strong {
-  color: #18202f;
+  color: #202633;
   font-size: clamp(18px, 3vw, 26px);
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
 .role-pill-explainer {
-  border-color: #9ad6e8;
-  background: linear-gradient(135deg, #eef9fc, #ffffff);
+  border-color: #a9ccd7;
+  background: linear-gradient(135deg, #edf5f7, #f9faf9);
 }
 
 .role-pill-guesser {
-  border-color: #f1c66d;
-  background: linear-gradient(135deg, #fff8e8, #ffffff);
+  border-color: #e0c887;
+  background: linear-gradient(135deg, #f7f0df, #f9faf9);
 }
 
 .target-word {
   width: min(680px, 100%);
   padding: 18px 20px;
-  border: 1px solid #c8e0ea;
+  border: 1px solid #cbdde2;
   border-radius: 16px;
-  color: #172033;
+  color: #202633;
   background:
-    radial-gradient(circle at 16px 20px, rgba(47, 127, 163, 0.15), transparent 28px),
-    linear-gradient(135deg, #eaf4f8, #ffffff 62%);
-  box-shadow: 0 18px 35px rgba(34, 48, 74, 0.1);
+    radial-gradient(circle at 16px 20px, rgba(77, 145, 168, 0.13), transparent 28px),
+    linear-gradient(135deg, #e8f0f2, #f9faf9 62%);
+  box-shadow: 0 18px 34px rgba(38, 48, 62, 0.08);
   animation: word-pop 320ms ease both;
 }
 
 .target-word span {
   display: inline-flex;
   margin-bottom: 8px;
-  color: #416378;
+  color: #4e6773;
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -384,16 +384,16 @@ h2 {
 }
 
 .target-word-hidden {
-  color: #526177;
+  color: #5f6979;
   background:
-    repeating-linear-gradient(135deg, rgba(98, 112, 134, 0.08) 0 10px, transparent 10px 20px),
-    #f7f9fc;
+    repeating-linear-gradient(135deg, rgba(105, 115, 132, 0.07) 0 10px, transparent 10px 20px),
+    #f5f6f6;
 }
 
 .field {
   display: grid;
   gap: 7px;
-  color: #405168;
+  color: #4e5868;
   font-weight: 700;
 }
 
@@ -401,19 +401,19 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #cfd8e5;
+  border: 1px solid #cbd3dc;
   border-radius: 8px;
   padding: 13px 14px;
-  color: #172033;
-  background: #ffffff;
+  color: #202633;
+  background: #fbfbfa;
   outline: none;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #2f7fa3;
-  box-shadow: 0 0 0 3px rgba(47, 127, 163, 0.14);
+  border-color: #5f93a7;
+  box-shadow: 0 0 0 3px rgba(95, 147, 167, 0.14);
 }
 
 textarea {
@@ -438,23 +438,23 @@ textarea {
 
 .primary {
   color: white;
-  background: #236f8f;
+  background: #4d7f92;
 }
 
 .secondary {
-  color: #203449;
-  background: #edf1f6;
-  border: 1px solid #d2dce8;
+  color: #2d3a4c;
+  background: #e8ecef;
+  border: 1px solid #d2d9e0;
 }
 
 .success {
   color: white;
-  background: #2f7d4f;
+  background: #4f8765;
 }
 
 .danger {
   color: white;
-  background: #b12a3d;
+  background: #a94152;
 }
 
 .compact {
@@ -485,9 +485,9 @@ textarea {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #dce3ee;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
-  background: #fbfcfe;
+  background: #f5f6f6;
 }
 
 .segmented {
@@ -495,22 +495,22 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 4px;
-  border: 1px solid #cfd8e5;
+  border: 1px solid #cbd3dc;
   border-radius: 8px;
-  background: #edf1f6;
+  background: #e8ecef;
 }
 
 .segmented button {
   min-height: 38px;
   border-radius: 6px;
-  color: #526177;
+  color: #5f6979;
   background: transparent;
   font-weight: 800;
 }
 
 .segmented button.active {
   color: #ffffff;
-  background: #236f8f;
+  background: #4d7f92;
 }
 
 .mine-list {
@@ -526,13 +526,13 @@ textarea {
   gap: 8px;
   max-width: 100%;
   padding: 6px;
-  border: 1px solid #c7d2e0;
+  border: 1px solid #cbd3dc;
   border-radius: 999px;
-  color: #203044;
-  background: #ffffff;
+  color: #2d3a4c;
+  background: #fbfbfa;
   font-weight: 800;
   overflow-wrap: anywhere;
-  box-shadow: 0 8px 18px rgba(34, 48, 74, 0.08);
+  box-shadow: 0 8px 18px rgba(38, 48, 62, 0.07);
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -559,8 +559,8 @@ textarea {
 .mine-word span {
   padding: 4px 8px;
   border-radius: 999px;
-  color: #5f6f85;
-  background: #edf3f8;
+  color: #667284;
+  background: #e9eef1;
   font-size: 12px;
   font-weight: 700;
 }
@@ -583,9 +583,9 @@ textarea {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  color: #203449;
-  background: #edf1f6;
-  border: 1px solid #d2dce8;
+  color: #2d3a4c;
+  background: #e8ecef;
+  border: 1px solid #d2d9e0;
 }
 
 .mine-edit-button {
@@ -606,7 +606,7 @@ textarea {
 
 .mine-chip.clickable {
   color: #7b2230;
-  background: #fff0f2;
+  background: #f7e8ec;
   border-color: #efc0c8;
 }
 
@@ -639,9 +639,9 @@ textarea {
   height: 96px;
   display: grid;
   place-items: center;
-  color: #1d3547;
-  background: #eaf4f8;
-  border: 1px solid #c8e0ea;
+  color: #2f5060;
+  background: #e8f0f2;
+  border: 1px solid #cbdde2;
   border-radius: 50%;
   font-size: 42px;
   font-weight: 900;
@@ -672,9 +672,9 @@ textarea {
   align-items: center;
   gap: 12px;
   padding: 11px 12px;
-  border: 1px solid #dce3ee;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
-  background: #fbfcfe;
+  background: #f7f8f8;
 }
 
 .score-delta span {
@@ -687,16 +687,16 @@ textarea {
 }
 
 .score-delta small {
-  color: #65748a;
+  color: #697384;
   text-align: right;
 }
 
 .positive {
-  color: #2f7d4f;
+  color: #4f8765;
 }
 
 .negative {
-  color: #9b1c31;
+  color: #9a4051;
 }
 
 .final-stage {
@@ -719,9 +719,9 @@ textarea {
   justify-items: center;
   gap: 10px;
   padding: 18px 12px;
-  border: 1px solid #d6dfeb;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
-  background: #f7f9fc;
+  background: #f5f6f6;
   animation: podium-pop 650ms ease both;
 }
 
@@ -738,24 +738,24 @@ textarea {
 
 .place-1 {
   min-height: 220px;
-  color: #563b04;
-  background: #fff4cf;
-  border-color: #f0cc66;
+  color: #5a4315;
+  background: #f5eac5;
+  border-color: #ddc26f;
   animation-delay: 160ms;
 }
 
 .place-2 {
   min-height: 190px;
   color: #2d3b4c;
-  background: #eef3f8;
+  background: #eef2f5;
   animation-delay: 60ms;
 }
 
 .place-3 {
   min-height: 170px;
-  color: #5a3320;
-  background: #ffe8d6;
-  border-color: #e9b58e;
+  color: #5a3a2b;
+  background: #f4e1d3;
+  border-color: #dfb396;
   animation-delay: 260ms;
 }
 
@@ -770,9 +770,9 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   padding: 11px 12px;
-  border: 1px solid #dce3ee;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
-  background: #ffffff;
+  background: #f7f8f8;
 }
 
 .modal-backdrop {
@@ -792,9 +792,9 @@ textarea {
   display: grid;
   gap: 16px;
   padding: 22px;
-  color: #18202f;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
+  color: #202633;
+  background: #f9faf9;
+  border: 1px solid #d7dde4;
   border-radius: 8px;
   box-shadow: 0 24px 60px rgba(10, 16, 25, 0.22);
 }
