@@ -6,6 +6,7 @@ import "./styles.css";
 
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
 const socket = io(socketUrl);
+const HEARTBEAT_INTERVAL_MS = 4 * 60_000;
 
 type Player = {
   id: string;
@@ -174,6 +175,19 @@ function App() {
     autoJoinAttemptedRef.current = true;
     socket.emit("room:join", { roomId: roomIdFromUrl, playerName });
   }, [playerName, room, roomIdFromUrl]);
+
+  useEffect(() => {
+    if (!room) {
+      return undefined;
+    }
+
+    socket.emit("room:heartbeat", { roomId: room.id });
+    const interval = window.setInterval(() => {
+      socket.emit("room:heartbeat", { roomId: room.id });
+    }, HEARTBEAT_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [room?.id]);
 
   function rememberName() {
     localStorage.setItem("playerName", playerName.trim());

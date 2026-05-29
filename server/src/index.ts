@@ -59,6 +59,12 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("room:heartbeat", ({ roomId }: { roomId: string }) => {
+    if (rooms.getRoomIdForSocket(socket.id) === roomId) {
+      socket.emit("room:heartbeat", { ok: true, at: Date.now() });
+    }
+  });
+
   socket.on("game:start", ({ roomId }: { roomId: string }) => {
     handle(socket.id, () => {
       const room = rooms.startGame(roomId, socket.id);
