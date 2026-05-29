@@ -18,6 +18,26 @@ export class RoomManager {
   private rooms = new Map<string, Room>();
   private socketRooms = new Map<string, string>();
 
+  hasRoom(roomId: string): boolean {
+    return this.rooms.has(roomId.toUpperCase());
+  }
+
+  importRoom(room: Room, options: { markPlayersDisconnected?: boolean } = {}): Room {
+    const normalizedRoom: Room = {
+      ...room,
+      id: room.id.toUpperCase(),
+      players: options.markPlayersDisconnected
+        ? room.players.map((player) => ({ ...player, isConnected: false }))
+        : room.players,
+    };
+    this.rooms.set(normalizedRoom.id, normalizedRoom);
+    return normalizedRoom;
+  }
+
+  getLoadedRooms(): Room[] {
+    return [...this.rooms.values()];
+  }
+
   createRoom(socketId: string, playerName: string): Room {
     const room: Room = {
       id: this.createRoomId(),
@@ -52,9 +72,10 @@ export class RoomManager {
     }
 
     const normalizedName = normalizePlayerName(playerName);
-    const reconnectingPlayer = room.players.find(
-      (player) => !player.isConnected && normalizePlayerName(player.name) === normalizedName,
-    );
+    const reconnectingPlayer = room.players.find((player) => {
+      const staleSocket = !this.socketRooms.has(player.id);
+      return normalizePlayerName(player.name) === normalizedName && (!player.isConnected || staleSocket);
+    });
     if (reconnectingPlayer) {
       this.replacePlayerId(room, reconnectingPlayer.id, socketId);
       reconnectingPlayer.id = socketId;

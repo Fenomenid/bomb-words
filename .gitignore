@@ -4,3 +4,4 @@ build
 .env
 .env.local
 start.bat
+PROJECT_CONTEXT.md

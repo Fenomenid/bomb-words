@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { GameError, RoomManager } from "./roomManager.js";
+import { RoomStore } from "./roomStore.js";
 import type { Room } from "./types.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -37,6 +38,7 @@ const io = new Server(server, {
 });
 
 const rooms = new RoomManager();
+const roomStore = new RoomStore();
 const timers = new Map<string, NodeJS.Timeout>();
 const reconnectTimers = new Map<string, NodeJS.Timeout>();
 const RECONNECT_GRACE_MS = 5 * 60_000;
@@ -51,7 +53,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("room:join", ({ roomId, playerName }: { roomId: string; playerName: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       const room = rooms.joinRoom(socket.id, roomId, playerName);
       clearReconnectTimer(room.id, socket.id);
       socket.join(room.id);
@@ -66,7 +69,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("game:start", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       const room = rooms.startGame(roomId, socket.id);
       schedulePhaseTimer(room);
       emitRoom(room);
@@ -74,15 +78,22 @@ io.on("connection", (socket) => {
   });
 
   socket.on("settings:update", ({ roomId, settings }: { roomId: string; settings: Partial<Room["settings"]> }) => {
-    handle(socket.id, () => emitRoom(rooms.updateSettings(roomId, socket.id, settings)));
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
+      emitRoom(rooms.updateSettings(roomId, socket.id, settings));
+    });
   });
 
   socket.on("settings:customWords", ({ roomId, wordsText }: { roomId: string; wordsText: string }) => {
-    handle(socket.id, () => emitRoom(rooms.updateCustomWords(roomId, socket.id, wordsText)));
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
+      emitRoom(rooms.updateCustomWords(roomId, socket.id, wordsText));
+    });
   });
 
   socket.on("player:kick", ({ roomId, playerId }: { roomId: string; playerId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       const room = rooms.kickPlayer(roomId, socket.id, playerId);
       clearReconnectTimer(room.id, playerId);
       io.to(playerId).emit("kicked", { message: "Хост удалил вас из комнаты" });
@@ -94,15 +105,22 @@ io.on("connection", (socket) => {
   });
 
   socket.on("mine:add", ({ roomId, word }: { roomId: string; word: string }) => {
-    handle(socket.id, () => emitRoom(rooms.addMine(roomId, socket.id, word)));
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
+      emitRoom(rooms.addMine(roomId, socket.id, word));
+    });
   });
 
   socket.on("mine:update", ({ roomId, oldWord, newWord }: { roomId: string; oldWord: string; newWord: string }) => {
-    handle(socket.id, () => emitRoom(rooms.updateMine(roomId, socket.id, oldWord, newWord)));
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
+      emitRoom(rooms.updateMine(roomId, socket.id, oldWord, newWord));
+    });
   });
 
   socket.on("round:start", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       const room = rooms.startExplaining(roomId, socket.id);
       schedulePhaseTimer(room);
       emitRoom(room);
@@ -110,7 +128,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("round:success", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       clearRoundTimer(roomId);
       const room = rooms.completeSuccess(roomId, socket.id);
       schedulePhaseTimer(room);
@@ -119,13 +138,15 @@ io.on("connection", (socket) => {
   });
 
   socket.on("round:mine", ({ roomId, mineWord, triggered }: { roomId: string; mineWord: string; triggered?: boolean }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       emitRoom(rooms.triggerMine(roomId, socket.id, mineWord, triggered !== false));
     });
   });
 
   socket.on("round:skip", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       clearRoundTimer(roomId);
       const room = rooms.skipRound(roomId, socket.id);
       schedulePhaseTimer(room);
@@ -134,7 +155,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("round:next", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       clearRoundTimer(roomId);
       const room = rooms.nextRound(roomId, socket.id);
       schedulePhaseTimer(room);
@@ -143,21 +165,24 @@ io.on("connection", (socket) => {
   });
 
   socket.on("game:reset", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       clearRoundTimer(roomId);
       emitRoom(rooms.resetGame(roomId, socket.id));
     });
   });
 
   socket.on("timer:pause", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       clearRoundTimer(roomId);
       emitRoom(rooms.pauseTimer(roomId, socket.id));
     });
   });
 
   socket.on("timer:resume", ({ roomId }: { roomId: string }) => {
-    handle(socket.id, () => {
+    handle(socket.id, async () => {
+      await ensureRoomLoaded(roomId);
       const room = rooms.resumeTimer(roomId, socket.id);
       schedulePhaseTimer(room);
       emitRoom(room);
@@ -182,11 +207,12 @@ io.on("connection", (socket) => {
 
 server.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
+  void restorePersistedRooms();
 });
 
-function handle(socketId: string, callback: () => void): void {
+async function handle(socketId: string, callback: () => void | Promise<void>): Promise<void> {
   try {
-    callback();
+    await callback();
   } catch (error) {
     const message = error instanceof GameError ? error.message : "Ошибка сервера";
     io.to(socketId).emit("error", { message });
@@ -194,6 +220,7 @@ function handle(socketId: string, callback: () => void): void {
 }
 
 function emitRoom(room: Room): void {
+  void persistRoom(room);
   for (const player of room.players) {
     if (!player.isConnected) {
       continue;
@@ -247,6 +274,46 @@ function schedulePhaseTimer(room: Room): void {
     }, delayMs),
   );
   emitTimer(room);
+}
+
+async function ensureRoomLoaded(roomId: string): Promise<void> {
+  if (rooms.hasRoom(roomId)) {
+    return;
+  }
+
+  const persistedRoom = await roomStore.getRoom(roomId);
+  if (!persistedRoom) {
+    return;
+  }
+
+  const room = rooms.importRoom(persistedRoom, { markPlayersDisconnected: true });
+  schedulePhaseTimer(room);
+}
+
+async function restorePersistedRooms(): Promise<void> {
+  if (!roomStore.enabled) {
+    console.log("Room persistence disabled: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is not set");
+    return;
+  }
+
+  try {
+    const persistedRooms = await roomStore.listRooms();
+    for (const persistedRoom of persistedRooms) {
+      const room = rooms.importRoom(persistedRoom, { markPlayersDisconnected: true });
+      schedulePhaseTimer(room);
+    }
+    console.log(`Restored ${persistedRooms.length} rooms from Redis`);
+  } catch (error) {
+    console.error("Failed to restore rooms from Redis", error);
+  }
+}
+
+async function persistRoom(room: Room): Promise<void> {
+  try {
+    await roomStore.saveRoom(room);
+  } catch (error) {
+    console.error(`Failed to persist room ${room.id}`, error);
+  }
 }
 
 function clearRoundTimer(roomId: string): void {

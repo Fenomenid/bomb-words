@@ -158,12 +158,22 @@ function App() {
       setError(message);
       window.history.replaceState(null, "", "/");
     });
+    socket.on("connect", () => {
+      setRoom((currentRoom) => {
+        const savedName = localStorage.getItem("playerName");
+        if (currentRoom && savedName) {
+          socket.emit("room:join", { roomId: currentRoom.id, playerName: savedName });
+        }
+        return currentRoom;
+      });
+    });
     socket.on("error", ({ message }: { message: string }) => setError(message));
 
     return () => {
       socket.off("room");
       socket.off("timer");
       socket.off("kicked");
+      socket.off("connect");
       socket.off("error");
     };
   }, []);
