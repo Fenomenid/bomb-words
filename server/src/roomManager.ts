@@ -882,18 +882,15 @@ function isDifficulty(value: unknown): value is Room["settings"]["difficulty"] {
 
 function normalizeCustomWords(wordsText: string): string[] {
   const words = wordsText
-    .split(/\r?\n/)
-    .map((word) => word.trim().toLowerCase())
+    .split(/[\n,]+/)
+    .map((word) => word.trim().toLowerCase().replace(/\s+/g, " "))
     .filter(Boolean);
   const uniqueWords: string[] = [];
   const seen = new Set<string>();
 
   for (const word of words) {
-    if (/\s/.test(word)) {
-      throw new GameError("В своем словаре каждое слово должно быть одним словом без пробелов");
-    }
     if (word.length > MAX_CUSTOM_WORD_LENGTH) {
-      throw new GameError(`Слово "${word}" длиннее ${MAX_CUSTOM_WORD_LENGTH} символов`);
+      throw new GameError(`Слово или фраза "${word}" длиннее ${MAX_CUSTOM_WORD_LENGTH} символов`);
     }
     if (!seen.has(word)) {
       seen.add(word);

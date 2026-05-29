@@ -576,14 +576,14 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
         <div className="custom-dictionary">
           <div>
             <p className="section-title">Свой словарь</p>
-            <p className="muted">Сейчас слов: {room.customWordCount}. Нужно минимум 10. Одно слово на строку, без пробелов.</p>
+            <p className="muted">Сейчас слов/фраз: {room.customWordCount}. Нужно минимум 10. Можно писать с новой строки или через запятую.</p>
           </div>
           {isHost ? (
             <>
               <textarea
                 value={customWordsText}
                 onChange={(event) => setCustomWordsText(event.target.value)}
-                placeholder={"корабль\nмолния\nпожарный"}
+                placeholder={"сериалы, остаться в живых, джек шепард\nджон локк\nарка чисел"}
                 rows={8}
               />
               <button className="secondary" type="button" onClick={saveCustomWords}>
@@ -595,11 +595,11 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
                   <span className="ready-icon" aria-hidden="true">
                     <Check size={18} />
                   </span>
-                  <span>Словарь сохранен и используется в игре. Сейчас слов: {room.customWordCount}.</span>
+                  <span>Словарь сохранен и используется в игре. Сейчас слов/фраз: {room.customWordCount}.</span>
                 </p>
               )}
               {!customWordsSaved && room.customWordCount >= 10 && (
-                <p className="notice">Используется свой словарь. Сейчас слов: {room.customWordCount}.</p>
+                <p className="notice">Используется свой словарь. Сейчас слов/фраз: {room.customWordCount}.</p>
               )}
             </>
           ) : (
