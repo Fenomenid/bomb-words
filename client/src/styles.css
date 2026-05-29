@@ -292,8 +292,8 @@ h2 {
 }
 
 .kick-button {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   display: inline-grid;
   place-items: center;
   border: 1px solid #f0c2ca;

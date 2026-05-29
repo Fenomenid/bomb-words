@@ -320,9 +320,13 @@ function App() {
                       type="button"
                       aria-label={`Кикнуть ${player.name}`}
                       title="Кикнуть игрока"
-                      onClick={() => socket.emit("player:kick", { roomId: room.id, playerId: player.id })}
+                      onClick={() => {
+                        if (window.confirm(`Кикнуть игрока ${player.name}?`)) {
+                          socket.emit("player:kick", { roomId: room.id, playerId: player.id });
+                        }
+                      }}
                     >
-                      <UserMinus size={15} />
+                      <UserMinus size={13} />
                     </button>
                   )}
                 </div>
