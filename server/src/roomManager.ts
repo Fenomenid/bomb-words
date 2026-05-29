@@ -329,18 +329,18 @@ export class RoomManager {
     return Math.max(0, round.timerEndsAt - Date.now());
   }
 
-  getTimerRemainingSec(room: Room): number | undefined {
+  getTimerRemainingMs(room: Room): number | undefined {
     const round = room.currentRound;
     if (!round || room.phase === "lobby" || room.phase === "game_result") {
       return undefined;
     }
     if (round.timerPausedAt && round.timerRemainingMs !== undefined) {
-      return Math.max(0, Math.ceil(round.timerRemainingMs / 1000));
+      return Math.max(0, round.timerRemainingMs);
     }
     if (!round.timerEndsAt) {
       return undefined;
     }
-    return Math.max(0, Math.ceil((round.timerEndsAt - Date.now()) / 1000));
+    return Math.max(0, round.timerEndsAt - Date.now());
   }
 
   handleTimerElapsed(roomId: string): Room {

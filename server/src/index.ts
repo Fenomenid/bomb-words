@@ -38,7 +38,6 @@ const io = new Server(server, {
 
 const rooms = new RoomManager();
 const timers = new Map<string, NodeJS.Timeout>();
-const timerTicks = new Map<string, NodeJS.Timeout>();
 const reconnectTimers = new Map<string, NodeJS.Timeout>();
 const RECONNECT_GRACE_MS = 5 * 60_000;
 
@@ -199,15 +198,15 @@ function emitRoom(room: Room): void {
 }
 
 function emitTimer(room: Room): void {
-  const remainingSec = rooms.getTimerRemainingSec(room);
-  if (remainingSec === undefined) {
+  const remainingMs = rooms.getTimerRemainingMs(room);
+  if (remainingMs === undefined) {
     return;
   }
 
   io.to(room.id).emit("timer", {
     roomId: room.id,
     phase: room.phase,
-    remainingSec,
+    remainingMs,
     isPaused: rooms.isTimerPaused(room),
   });
 }
@@ -242,7 +241,6 @@ function schedulePhaseTimer(room: Room): void {
     }, delayMs),
   );
   emitTimer(room);
-  timerTicks.set(room.id, setInterval(() => emitTimer(room), 1000));
 }
 
 function clearRoundTimer(roomId: string): void {
@@ -250,11 +248,6 @@ function clearRoundTimer(roomId: string): void {
   if (timer) {
     clearTimeout(timer);
     timers.delete(roomId);
-  }
-  const timerTick = timerTicks.get(roomId);
-  if (timerTick) {
-    clearInterval(timerTick);
-    timerTicks.delete(roomId);
   }
 }
 

@@ -74,8 +74,9 @@ type RoomSnapshot = {
 type TimerSnapshot = {
   roomId: string;
   phase: RoomSnapshot["phase"];
-  remainingSec: number;
+  remainingMs: number;
   isPaused: boolean;
+  receivedAt: number;
 };
 
 type SettingsDraft = {
@@ -121,9 +122,9 @@ function App() {
   const isHost = Boolean(self?.isHost);
   const round = room?.currentRound;
   const connectedPlayersCount = room?.players.filter((player) => player.isConnected).length ?? 0;
-  const syncedSeconds =
+  const syncedTimer =
     room && serverTimer?.roomId === room.id && serverTimer.phase === room.phase
-      ? serverTimer.remainingSec
+      ? serverTimer
       : undefined;
   const isExplainer = Boolean(round && room?.selfId === round.explainerId);
   const isGuesser = Boolean(round && room?.selfId === round.guesserId);
@@ -147,8 +148,8 @@ function App() {
         window.history.replaceState(null, "", `/room/${snapshot.id}`);
       }
     });
-    socket.on("timer", (timer: TimerSnapshot) => {
-      setServerTimer(timer);
+    socket.on("timer", (timer: Omit<TimerSnapshot, "receivedAt">) => {
+      setServerTimer({ ...timer, receivedAt: Date.now() });
     });
     socket.on("kicked", ({ message }: { message: string }) => {
       setRoom(null);
@@ -340,7 +341,7 @@ function App() {
               room={room}
               isExplainer={isExplainer}
               isHost={isHost}
-              syncedSeconds={syncedSeconds}
+              syncedTimer={syncedTimer}
               mineWord={mineWord}
               setMineWord={setMineWord}
               addMine={addMine}
@@ -348,10 +349,10 @@ function App() {
           )}
 
           {room.phase === "explaining" && round && (
-            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} syncedSeconds={syncedSeconds} />
+            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} syncedTimer={syncedTimer} />
           )}
 
-          {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} syncedSeconds={syncedSeconds} />}
+          {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} syncedTimer={syncedTimer} />}
           {room.phase === "game_result" && <GameResult room={room} isHost={isHost} />}
         </section>
       </div>
@@ -627,7 +628,7 @@ function MineSubmission({
   room,
   isExplainer,
   isHost,
-  syncedSeconds,
+  syncedTimer,
   mineWord,
   setMineWord,
   addMine,
@@ -635,14 +636,14 @@ function MineSubmission({
   room: RoomSnapshot;
   isExplainer: boolean;
   isHost: boolean;
-  syncedSeconds?: number;
+  syncedTimer?: TimerSnapshot;
   mineWord: string;
   setMineWord: (value: string) => void;
   addMine: (event: React.FormEvent) => void;
 }) {
   const round = room.currentRound!;
   const remaining = room.settings.minesPerPlayer - round.myMineCount;
-  const secondsLeft = useCountdown(round, syncedSeconds);
+  const secondsLeft = useCountdown(round, syncedTimer);
   const totalMineSlots = Math.max(0, (room.players.length - 2) * room.settings.minesPerPlayer);
   const allMinesSubmitted = totalMineSlots > 0 && round.mineCount >= totalMineSlots;
 
@@ -704,17 +705,17 @@ function Explaining({
   isGuesser,
   isHost,
   soundEnabled,
-  syncedSeconds,
+  syncedTimer,
 }: {
   room: RoomSnapshot;
   isExplainer: boolean;
   isGuesser: boolean;
   isHost: boolean;
   soundEnabled: boolean;
-  syncedSeconds?: number;
+  syncedTimer?: TimerSnapshot;
 }) {
   const round = room.currentRound!;
-  const secondsLeft = useCountdown(round, syncedSeconds);
+  const secondsLeft = useCountdown(round, syncedTimer);
   const isMiner = !isExplainer && !isGuesser;
   const canConfirmSuccess = isExplainer;
   const canSkip = isGuesser || isExplainer;
@@ -758,9 +759,9 @@ function Explaining({
   );
 }
 
-function RoundResult({ room, isHost, syncedSeconds }: { room: RoomSnapshot; isHost: boolean; syncedSeconds?: number }) {
+function RoundResult({ room, isHost, syncedTimer }: { room: RoomSnapshot; isHost: boolean; syncedTimer?: TimerSnapshot }) {
   const round = room.currentRound!;
-  const secondsLeft = useCountdown(round, syncedSeconds);
+  const secondsLeft = useCountdown(round, syncedTimer);
   const hasTriggeredMines = (round.triggeredMines?.length ?? 0) > 0;
   const statusText = getRoundResultTitle(round.status, hasTriggeredMines);
 
@@ -1076,7 +1077,7 @@ function getPlayerRowClassName(
     .join(" ");
 }
 
-function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>, syncedSeconds?: number) {
+function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>, syncedTimer?: TimerSnapshot) {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -1084,8 +1085,9 @@ function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>, syncedSe
     return () => window.clearInterval(interval);
   }, []);
 
-  if (syncedSeconds !== undefined) {
-    return syncedSeconds;
+  if (syncedTimer) {
+    const elapsedMs = syncedTimer.isPaused ? 0 : Date.now() - syncedTimer.receivedAt;
+    return Math.max(0, Math.ceil((syncedTimer.remainingMs - elapsedMs) / 1000));
   }
 
   if (round.isTimerPaused && round.timerRemainingMs !== undefined) {
