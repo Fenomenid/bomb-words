@@ -808,9 +808,29 @@ textarea {
 
 .rules-list {
   display: grid;
-  gap: 10px;
+  gap: 16px;
   color: #405168;
   line-height: 1.5;
+}
+
+.rules-list section {
+  display: grid;
+  gap: 7px;
+}
+
+.rules-list h3 {
+  margin: 0;
+  color: #18202f;
+  font-size: 16px;
+}
+
+.rules-list ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.rules-list li + li {
+  margin-top: 5px;
 }
 
 :root[data-theme="dark"] .auth-panel,
@@ -1010,6 +1030,10 @@ textarea {
 
 :root[data-theme="dark"] .rules-list {
   color: #c7d5e7;
+}
+
+:root[data-theme="dark"] .rules-list h3 {
+  color: #e7edf6;
 }
 
 :root[data-theme="dark"] .place-1 {
