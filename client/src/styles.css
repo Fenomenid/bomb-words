@@ -390,6 +390,34 @@ h2 {
     #f5f6f6;
 }
 
+.round-word-card {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid #cbdde2;
+  border-radius: 16px;
+  color: #202633;
+  background:
+    radial-gradient(circle at 18px 22px, rgba(77, 127, 146, 0.15), transparent 30px),
+    linear-gradient(135deg, #eef4f2, #f9faf9 64%);
+  box-shadow: 0 18px 34px rgba(38, 48, 62, 0.08);
+  animation: word-pop 320ms ease both;
+}
+
+.round-word-card span {
+  color: #4e6773;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.round-word-card strong {
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
 .field {
   display: grid;
   gap: 7px;
@@ -975,12 +1003,14 @@ textarea {
 }
 
 :root[data-theme="dark"] .role-pill span,
-:root[data-theme="dark"] .target-word span {
+:root[data-theme="dark"] .target-word span,
+:root[data-theme="dark"] .round-word-card span {
   color: #9eb0c7;
 }
 
 :root[data-theme="dark"] .role-pill strong,
-:root[data-theme="dark"] .target-word {
+:root[data-theme="dark"] .target-word,
+:root[data-theme="dark"] .round-word-card {
   color: #e7edf6;
 }
 
@@ -1004,6 +1034,16 @@ textarea {
     radial-gradient(circle at 16px 20px, rgba(95, 196, 239, 0.18), transparent 28px),
     linear-gradient(135deg, #173447, #111a27 62%);
   border-color: #2d607d;
+}
+
+:root[data-theme="dark"] .round-word-card {
+  background:
+    radial-gradient(circle at 18px 22px, rgba(72, 209, 123, 0.16), transparent 30px),
+    linear-gradient(135deg, #123b25, #111a27 64%);
+  border-color: #316f49;
+  box-shadow:
+    0 0 0 1px rgba(72, 209, 123, 0.12),
+    0 18px 34px rgba(0, 0, 0, 0.22);
 }
 
 :root[data-theme="dark"] .target-word-hidden {

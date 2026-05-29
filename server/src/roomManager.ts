@@ -296,7 +296,7 @@ export class RoomManager {
   startExplaining(roomId: string, socketId: string): Room {
     const room = this.getRoom(roomId);
     const round = this.requireRound(room);
-    this.assertHostOrExplainer(room, socketId);
+    this.assertExplainer(room, socketId);
     if (room.phase !== "mine_submission") {
       throw new GameError("Нельзя начать объяснение в этой фазе");
     }
@@ -617,14 +617,14 @@ export class RoomManager {
     }
   }
 
-  private assertHostOrExplainer(room: Room, socketId: string): void {
+  private assertExplainer(room: Room, socketId: string): void {
     const round = this.requireRound(room);
     const player = room.players.find((candidate) => candidate.id === socketId);
     if (!player) {
       throw new GameError("Игрок не найден");
     }
-    if (!player.isHost && player.id !== round.explainerId) {
-      throw new GameError("Действие доступно хосту или объясняющему");
+    if (player.id !== round.explainerId) {
+      throw new GameError("Начать объяснение может только объясняющий");
     }
   }
 

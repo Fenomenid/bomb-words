@@ -136,6 +136,17 @@ function App() {
   const isHost = Boolean(self?.isHost);
   const round = room?.currentRound;
   const connectedPlayersCount = room?.players.filter((player) => player.isConnected).length ?? 0;
+  const sortedPlayers = room
+    ? [...room.players].sort((firstPlayer, secondPlayer) => {
+        if (secondPlayer.score !== firstPlayer.score) {
+          return secondPlayer.score - firstPlayer.score;
+        }
+        if (firstPlayer.isConnected !== secondPlayer.isConnected) {
+          return firstPlayer.isConnected ? -1 : 1;
+        }
+        return firstPlayer.name.localeCompare(secondPlayer.name, "ru");
+      })
+    : [];
   const syncedTimer =
     room && serverTimer?.roomId === room.id && serverTimer.phase === room.phase
       ? serverTimer
@@ -329,7 +340,7 @@ function App() {
             Игроки
           </div>
           <div className="players">
-            {room.players.map((player) => (
+            {sortedPlayers.map((player) => (
               <div className={getPlayerRowClassName(player, round, room.selfId)} key={player.id}>
                 <div>
                   <strong className="player-name">
@@ -736,7 +747,7 @@ function MineSubmission({
         </>
       )}
 
-      {(isHost || isExplainer) && (
+      {isExplainer && (
         <button className="primary" disabled={round.mineCount === 0} onClick={() => socket.emit("round:start", { roomId: room.id })}>
           <Timer size={18} />
           Начать объяснение
@@ -825,9 +836,7 @@ function RoundResult({ room, isHost, syncedTimer }: { room: RoomSnapshot; isHost
       <p className="eyebrow">Результат</p>
       <h2>{statusText}</h2>
       <div className="timer small">{secondsLeft}</div>
-      <p className="muted">
-        Слово: <strong>{round.word ?? "неизвестно"}</strong>
-      </p>
+      <RoundWord word={round.word ?? "неизвестно"} />
       {round.resultMine && <p className="notice">Мина: {round.resultMine.word}</p>}
       {(round.triggeredMines?.length ?? 0) > 0 && <p className="notice">Попались на мин: {round.triggeredMines?.length}</p>}
       <ScoreDeltaList deltas={round.scoreDeltas} />
@@ -859,6 +868,15 @@ function ScoreDeltaList({ deltas }: { deltas: ScoreDelta[] }) {
           <small>{delta.reason}</small>
         </div>
       ))}
+    </div>
+  );
+}
+
+function RoundWord({ word }: { word: string }) {
+  return (
+    <div className="round-word-card">
+      <span>Слово раунда</span>
+      <strong>{word}</strong>
     </div>
   );
 }
