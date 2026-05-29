@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Mine, Player, PublicMine, Room, RoomSnapshot, RoundStatus } from "./types.js";
+import type { Mine, Player, PublicMine, PublicPlayer, Room, RoomSnapshot, RoundStatus } from "./types.js";
 import { WORD_DICTIONARIES } from "./words.js";
 
 const MIN_PLAYERS = 3;
@@ -27,8 +27,8 @@ export class RoomManager {
       ...room,
       id: room.id.toUpperCase(),
       players: options.markPlayersDisconnected
-        ? room.players.map((player) => ({ ...player, isConnected: false }))
-        : room.players,
+        ? room.players.map((player) => ({ ...this.normalizePersistedPlayer(player), isConnected: false }))
+        : room.players.map((player) => this.normalizePersistedPlayer(player)),
     };
     this.rooms.set(normalizedRoom.id, normalizedRoom);
     return normalizedRoom;
@@ -38,10 +38,10 @@ export class RoomManager {
     return [...this.rooms.values()];
   }
 
-  createRoom(socketId: string, playerName: string): Room {
+  createRoom(socketId: string, playerName: string, playerToken: string): Room {
     const room: Room = {
       id: this.createRoomId(),
-      players: [this.createPlayer(socketId, playerName, true)],
+      players: [this.createPlayer(socketId, playerName, playerToken, true)],
       phase: "lobby",
       roundIndex: 0,
       explainerQueue: [],
@@ -65,28 +65,30 @@ export class RoomManager {
     return room;
   }
 
-  joinRoom(socketId: string, roomId: string, playerName: string): Room {
+  joinRoom(socketId: string, roomId: string, playerName: string, playerToken: string): Room {
     const room = this.getRoom(roomId);
     if (room.players.some((player) => player.id === socketId)) {
       return room;
     }
 
-    const normalizedName = normalizePlayerName(playerName);
+    const normalizedToken = normalizePlayerToken(playerToken);
     const reconnectingPlayer = room.players.find((player) => {
       const staleSocket = !this.socketRooms.has(player.id);
-      return normalizePlayerName(player.name) === normalizedName && (!player.isConnected || staleSocket);
+      return player.token === normalizedToken && (!player.isConnected || staleSocket || player.id !== socketId);
     });
     if (reconnectingPlayer) {
+      this.socketRooms.delete(reconnectingPlayer.id);
       this.replacePlayerId(room, reconnectingPlayer.id, socketId);
       reconnectingPlayer.id = socketId;
       reconnectingPlayer.name = playerName.trim().slice(0, 32);
+      reconnectingPlayer.token = normalizedToken;
       reconnectingPlayer.isConnected = true;
       this.ensureConnectedHost(room);
       this.socketRooms.set(socketId, room.id);
       return room;
     }
 
-    room.players.push(this.createPlayer(socketId, playerName, room.players.length === 0));
+    room.players.push(this.createPlayer(socketId, playerName, normalizedToken, room.players.length === 0));
     this.ensureConnectedHost(room);
     this.socketRooms.set(socketId, room.id);
     return room;
@@ -468,13 +470,13 @@ export class RoomManager {
     return {
       id: room.id,
       phase: room.phase,
-      players: room.players,
+      players: this.publicPlayers(room.players),
       selfId: viewerId,
       roundIndex: room.roundIndex,
       settings: room.settings,
       customWordCount: room.customWords.length,
       customWords: viewer?.isHost && room.phase === "lobby" ? room.customWords : undefined,
-      finalStandings: room.phase === "game_result" ? this.getStandings(room) : undefined,
+      finalStandings: room.phase === "game_result" ? this.publicPlayers(this.getStandings(room)) : undefined,
       inviteUrl: inviteOrigin ? `${inviteOrigin}/room/${room.id}` : undefined,
       currentRound: round
         ? {
@@ -577,7 +579,7 @@ export class RoomManager {
     return word;
   }
 
-  private createPlayer(socketId: string, playerName: string, isHost: boolean): Player {
+  private createPlayer(socketId: string, playerName: string, playerToken: string, isHost: boolean): Player {
     const trimmedName = playerName.trim();
     if (!trimmedName) {
       throw new GameError("Введите имя");
@@ -585,6 +587,7 @@ export class RoomManager {
 
     return {
       id: socketId,
+      token: normalizePlayerToken(playerToken),
       name: trimmedName.slice(0, 32),
       score: 0,
       isHost,
@@ -759,6 +762,10 @@ export class RoomManager {
     return [...room.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
   }
 
+  private publicPlayers(players: Player[]): PublicPlayer[] {
+    return players.map(({ token: _token, ...player }) => player);
+  }
+
   private connectedPlayers(room: Room): Player[] {
     return room.players.filter((player) => player.isConnected);
   }
@@ -859,6 +866,13 @@ export class RoomManager {
     return room.players.find((player) => player.id === playerId)?.name ?? "Игрок";
   }
 
+  private normalizePersistedPlayer(player: Player): Player {
+    return {
+      ...player,
+      token: normalizePlayerToken(player.token || `legacy:${player.id}`),
+    };
+  }
+
   private createRoomId(): string {
     let id = "";
     do {
@@ -872,8 +886,11 @@ function normalizeMine(word: string): string {
   return word.trim().toLowerCase();
 }
 
-function normalizePlayerName(name: string): string {
-  return name.trim().toLowerCase();
+function normalizePlayerToken(token: unknown): string {
+  if (typeof token === "string" && token.trim()) {
+    return token.trim();
+  }
+  return randomUUID();
 }
 
 function replaceIdInList(items: string[], oldId: string, newId: string): string[] {

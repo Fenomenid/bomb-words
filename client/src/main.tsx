@@ -7,6 +7,7 @@ import "./styles.css";
 const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "http://localhost:3001" : window.location.origin);
 const socket = io(socketUrl);
 const HEARTBEAT_INTERVAL_MS = 4 * 60_000;
+const playerToken = getOrCreatePlayerToken();
 
 type Player = {
   id: string;
@@ -100,6 +101,18 @@ function settingsToDraft(settings: RoomSnapshot["settings"]): SettingsDraft {
   };
 }
 
+function getOrCreatePlayerToken(): string {
+  const storageKey = "playerToken";
+  const existingToken = localStorage.getItem(storageKey);
+  if (existingToken) {
+    return existingToken;
+  }
+
+  const token = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(storageKey, token);
+  return token;
+}
+
 function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [serverTimer, setServerTimer] = useState<TimerSnapshot | null>(null);
@@ -162,7 +175,7 @@ function App() {
       setRoom((currentRoom) => {
         const savedName = localStorage.getItem("playerName");
         if (currentRoom && savedName) {
-          socket.emit("room:join", { roomId: currentRoom.id, playerName: savedName });
+          socket.emit("room:join", { roomId: currentRoom.id, playerName: savedName, playerToken });
         }
         return currentRoom;
       });
@@ -183,7 +196,7 @@ function App() {
       return;
     }
     autoJoinAttemptedRef.current = true;
-    socket.emit("room:join", { roomId: roomIdFromUrl, playerName });
+    socket.emit("room:join", { roomId: roomIdFromUrl, playerName, playerToken });
   }, [playerName, room, roomIdFromUrl]);
 
   useEffect(() => {
@@ -205,12 +218,12 @@ function App() {
 
   function createRoom() {
     rememberName();
-    socket.emit("room:create", { playerName });
+    socket.emit("room:create", { playerName, playerToken });
   }
 
   function joinRoom() {
     rememberName();
-    socket.emit("room:join", { roomId: roomIdFromUrl, playerName });
+    socket.emit("room:join", { roomId: roomIdFromUrl, playerName, playerToken });
   }
 
   function addMine(event: React.FormEvent) {
@@ -683,19 +696,25 @@ function MineSubmission({
       <TargetWord word={round.word} hiddenLabel="Слово скрыто" />
 
       {isExplainer ? (
-        <div className={allMinesSubmitted ? "notice ready-notice" : "notice"}>
-          {allMinesSubmitted && (
-            <span className="ready-icon" aria-hidden="true">
-              <Check size={18} />
+        <div className="mine-progress-panel">
+          <div className={allMinesSubmitted ? "notice ready-notice" : "notice"}>
+            {allMinesSubmitted && (
+              <span className="ready-icon" aria-hidden="true">
+                <Check size={18} />
+              </span>
+            )}
+            <span>
+              Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}.
+              {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
             </span>
-          )}
-          <span>
-            Остальные игроки придумывают мины. Сейчас мин: {round.mineCount}.
-            {allMinesSubmitted && " Все возможные мины поставлены, можно начинать объяснение."}
-          </span>
+          </div>
+          <MineProgress filled={round.mineCount} total={totalMineSlots} />
         </div>
       ) : !round.canSubmitMines ? (
-        <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
+        <div className="mine-progress-panel">
+          <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
+          <MineProgress filled={round.mineCount} total={totalMineSlots} />
+        </div>
       ) : (
         <>
           <form className="mine-form" onSubmit={addMine}>
@@ -748,6 +767,7 @@ function Explaining({
   const canConfirmSuccess = isExplainer;
   const canSkip = isGuesser || isExplainer;
   const skipLabel = isGuesser ? "Сдаться" : "Не угадали";
+  const totalMineSlots = Math.max(0, (room.players.length - 2) * room.settings.minesPerPlayer);
   useTimerWarning(secondsLeft, room.phase, round.isTimerPaused, soundEnabled);
 
   return (
@@ -756,7 +776,14 @@ function Explaining({
       <div className="timer">{secondsLeft}</div>
       <RoleLine round={round} selfId={room.selfId} />
       <TargetWord word={isExplainer || isMiner ? round.word : undefined} hiddenLabel="Угадывайте слово" />
-      <p className="notice">Мин в раунде: {round.mineCount}</p>
+      {isMiner ? (
+        <p className="notice">Мин в раунде: {round.mineCount}</p>
+      ) : (
+        <div className="mine-progress-panel">
+          <p className="notice">Мин в раунде: {round.mineCount}</p>
+          <MineProgress filled={round.mineCount} total={totalMineSlots} />
+        </div>
+      )}
 
       {round.mines && (
         <MineList
@@ -995,6 +1022,33 @@ function MineList({
           isTriggered={triggeredWords.includes(mine.word)}
         />
       ))}
+    </div>
+  );
+}
+
+function MineProgress({ filled, total }: { filled: number; total: number }) {
+  const safeTotal = Math.max(0, total);
+  const safeFilled = Math.min(Math.max(0, filled), safeTotal);
+
+  if (safeTotal === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mine-progress" aria-label={`Мин заполнено ${safeFilled} из ${safeTotal}`}>
+      <div className="mine-progress-header">
+        <span>Прогресс мин</span>
+        <strong>
+          {safeFilled}/{safeTotal}
+        </strong>
+      </div>
+      <div className="mine-slots">
+        {Array.from({ length: safeTotal }, (_, index) => (
+          <span key={index} className={index < safeFilled ? "mine-slot filled" : "mine-slot"} aria-hidden="true">
+            <Bomb size={15} />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

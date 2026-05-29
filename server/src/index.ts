@@ -41,21 +41,21 @@ const rooms = new RoomManager();
 const roomStore = new RoomStore();
 const timers = new Map<string, NodeJS.Timeout>();
 const reconnectTimers = new Map<string, NodeJS.Timeout>();
-const RECONNECT_GRACE_MS = 5 * 60_000;
+const RECONNECT_GRACE_MS = 15 * 60_000;
 
 io.on("connection", (socket) => {
-  socket.on("room:create", ({ playerName }: { playerName: string }) => {
+  socket.on("room:create", ({ playerName, playerToken }: { playerName: string; playerToken: string }) => {
     handle(socket.id, () => {
-      const room = rooms.createRoom(socket.id, playerName);
+      const room = rooms.createRoom(socket.id, playerName, playerToken);
       socket.join(room.id);
       emitRoom(room);
     });
   });
 
-  socket.on("room:join", ({ roomId, playerName }: { roomId: string; playerName: string }) => {
+  socket.on("room:join", ({ roomId, playerName, playerToken }: { roomId: string; playerName: string; playerToken: string }) => {
     handle(socket.id, async () => {
       await ensureRoomLoaded(roomId);
-      const room = rooms.joinRoom(socket.id, roomId, playerName);
+      const room = rooms.joinRoom(socket.id, roomId, playerName, playerToken);
       clearReconnectTimer(room.id, socket.id);
       socket.join(room.id);
       emitRoom(room);

@@ -5,11 +5,14 @@ export type Difficulty = "easy" | "medium" | "hard" | "custom";
 
 export type Player = {
   id: string;
+  token: string;
   name: string;
   score: number;
   isHost: boolean;
   isConnected: boolean;
 };
+
+export type PublicPlayer = Omit<Player, "token">;
 
 export type Mine = {
   word: string;
@@ -68,13 +71,13 @@ export type PublicMine = Mine & {
 export type RoomSnapshot = {
   id: string;
   phase: RoomPhase;
-  players: Player[];
+  players: PublicPlayer[];
   selfId: string;
   roundIndex: number;
   settings: Room["settings"];
   customWordCount: number;
   customWords?: string[];
-  finalStandings?: Player[];
+  finalStandings?: PublicPlayer[];
   inviteUrl?: string;
   currentRound?: {
     word?: string;
