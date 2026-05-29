@@ -190,6 +190,7 @@ h2 {
 }
 
 .player-row {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -198,6 +199,46 @@ h2 {
   border: 1px solid #e1e7f0;
   border-radius: 8px;
   background: #fbfcfe;
+  overflow: hidden;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.player-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  opacity: 0;
+}
+
+.player-row.role-explainer {
+  border-color: #9ad6e8;
+  background: #eef9fc;
+  box-shadow: 0 8px 20px rgba(47, 127, 163, 0.12);
+}
+
+.player-row.role-explainer::before {
+  opacity: 1;
+  background: #2f8eb7;
+}
+
+.player-row.role-guesser {
+  border-color: #f1c66d;
+  background: #fff8e8;
+  box-shadow: 0 8px 20px rgba(178, 119, 12, 0.12);
+}
+
+.player-row.role-guesser::before {
+  opacity: 1;
+  background: #d99016;
+}
+
+.player-row.self {
+  transform: translateX(2px);
 }
 
 .player-row div {
@@ -246,6 +287,81 @@ h2 {
   align-items: flex-start;
   justify-content: center;
   gap: 18px;
+  animation: stage-in 260ms ease both;
+}
+
+.role-banner {
+  width: min(680px, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.role-pill {
+  display: grid;
+  gap: 4px;
+  padding: 13px 15px;
+  border: 1px solid #d6dfeb;
+  border-radius: 999px;
+  background: #f7f9fc;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.role-pill span {
+  color: #627086;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.role-pill strong {
+  color: #18202f;
+  font-size: clamp(18px, 3vw, 26px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.role-pill-explainer {
+  border-color: #9ad6e8;
+  background: linear-gradient(135deg, #eef9fc, #ffffff);
+}
+
+.role-pill-guesser {
+  border-color: #f1c66d;
+  background: linear-gradient(135deg, #fff8e8, #ffffff);
+}
+
+.target-word {
+  width: min(680px, 100%);
+  padding: 18px 20px;
+  border: 1px solid #c8e0ea;
+  border-radius: 16px;
+  color: #172033;
+  background:
+    radial-gradient(circle at 16px 20px, rgba(47, 127, 163, 0.15), transparent 28px),
+    linear-gradient(135deg, #eaf4f8, #ffffff 62%);
+  box-shadow: 0 18px 35px rgba(34, 48, 74, 0.1);
+  animation: word-pop 320ms ease both;
+}
+
+.target-word span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: #416378;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.target-word h2 {
+  overflow-wrap: anywhere;
+}
+
+.target-word-hidden {
+  color: #526177;
+  background:
+    repeating-linear-gradient(135deg, rgba(98, 112, 134, 0.08) 0 10px, transparent 10px 20px),
+    #f7f9fc;
 }
 
 .field {
@@ -375,7 +491,7 @@ textarea {
   width: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .mine-chip {
@@ -383,21 +499,28 @@ textarea {
   align-items: center;
   gap: 8px;
   max-width: 100%;
-  padding: 9px 11px;
-  border: 1px solid #d5ddea;
-  border-radius: 8px;
-  color: #223249;
-  background: #f7f9fc;
+  padding: 6px;
+  border: 1px solid #c7d2e0;
+  border-radius: 999px;
+  color: #203044;
+  background: #ffffff;
   font-weight: 800;
   overflow-wrap: anywhere;
+  box-shadow: 0 8px 18px rgba(34, 48, 74, 0.08);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
 }
 
 .mine-word {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 0;
-  padding: 0;
+  min-height: 42px;
+  padding: 7px 13px;
+  border-radius: 999px;
   color: inherit;
   background: transparent;
   font-weight: inherit;
@@ -408,7 +531,10 @@ textarea {
 }
 
 .mine-word span {
-  color: #68768b;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #5f6f85;
+  background: #edf3f8;
   font-size: 12px;
   font-weight: 700;
 }
@@ -434,6 +560,10 @@ textarea {
   border: 1px solid #d2dce8;
 }
 
+.mine-edit-button {
+  border-radius: 999px;
+}
+
 .mine-edit {
   display: inline-grid;
   grid-template-columns: minmax(120px, 190px) auto auto;
@@ -452,11 +582,19 @@ textarea {
   border-color: #efc0c8;
 }
 
+.mine-chip.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(123, 34, 48, 0.14);
+}
+
 .mine-chip.triggered {
   color: #ffffff;
   background: #9b1c31;
   border-color: #9b1c31;
-  box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.16);
+  box-shadow:
+    0 0 0 4px rgba(155, 28, 49, 0.16),
+    0 16px 28px rgba(155, 28, 49, 0.22);
+  animation: mine-trigger 260ms ease both;
 }
 
 .mine-chip.triggered .mine-word span {
@@ -479,6 +617,7 @@ textarea {
   border-radius: 50%;
   font-size: 42px;
   font-weight: 900;
+  box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0.35);
 }
 
 .timer.small {
@@ -698,6 +837,54 @@ textarea {
   border-color: #2a3a50;
 }
 
+:root[data-theme="dark"] .player-row.role-explainer {
+  background: #102b3a;
+  border-color: #2f8eb7;
+}
+
+:root[data-theme="dark"] .player-row.role-guesser {
+  background: #30250f;
+  border-color: #a87519;
+}
+
+:root[data-theme="dark"] .role-pill {
+  background: #111a27;
+  border-color: #2a3a50;
+}
+
+:root[data-theme="dark"] .role-pill span,
+:root[data-theme="dark"] .target-word span {
+  color: #9eb0c7;
+}
+
+:root[data-theme="dark"] .role-pill strong,
+:root[data-theme="dark"] .target-word {
+  color: #e7edf6;
+}
+
+:root[data-theme="dark"] .role-pill-explainer {
+  background: linear-gradient(135deg, #102b3a, #111a27);
+  border-color: #2f8eb7;
+}
+
+:root[data-theme="dark"] .role-pill-guesser {
+  background: linear-gradient(135deg, #30250f, #111a27);
+  border-color: #a87519;
+}
+
+:root[data-theme="dark"] .target-word {
+  background:
+    radial-gradient(circle at 16px 20px, rgba(95, 196, 239, 0.18), transparent 28px),
+    linear-gradient(135deg, #173447, #111a27 62%);
+  border-color: #2d607d;
+}
+
+:root[data-theme="dark"] .target-word-hidden {
+  background:
+    repeating-linear-gradient(135deg, rgba(158, 176, 199, 0.08) 0 10px, transparent 10px 20px),
+    #111a27;
+}
+
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] select,
 :root[data-theme="dark"] textarea {
@@ -762,7 +949,14 @@ textarea {
 }
 
 :root[data-theme="dark"] .mine-word span {
-  color: #9eb0c7;
+  color: #c4d0df;
+  background: #203044;
+}
+
+:root[data-theme="dark"] .mine-chip.triggered {
+  color: #ffffff;
+  background: #c23b51;
+  border-color: #e05268;
 }
 
 :root[data-theme="dark"] .player-name svg {
@@ -813,6 +1007,44 @@ textarea {
   }
 }
 
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes word-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mine-trigger {
+  0% {
+    transform: scale(0.96);
+  }
+
+  65% {
+    transform: scale(1.04);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 760px) {
   .page {
     padding: 16px;
@@ -829,6 +1061,10 @@ textarea {
 
   .stage {
     min-height: 360px;
+  }
+
+  .role-banner {
+    grid-template-columns: 1fr;
   }
 
   .mine-form {

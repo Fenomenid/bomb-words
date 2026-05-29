@@ -24,6 +24,8 @@ export class RoomManager {
       players: [this.createPlayer(socketId, playerName, true)],
       phase: "lobby",
       roundIndex: 0,
+      explainerQueue: [],
+      guesserQueue: [],
       usedWords: [],
       customWords: [],
       settings: {
@@ -68,6 +70,8 @@ export class RoomManager {
 
     const removedPlayer = room.players.find((player) => player.id === socketId);
     room.players = room.players.filter((player) => player.id !== socketId);
+    room.explainerQueue = room.explainerQueue.filter((playerId) => playerId !== socketId);
+    room.guesserQueue = room.guesserQueue.filter((playerId) => playerId !== socketId);
     if (room.players.length === 0) {
       this.rooms.delete(roomId);
       return { deletedRoomId: roomId, removedPlayerId: socketId };
@@ -104,6 +108,8 @@ export class RoomManager {
     }
     if (room.phase === "lobby") {
       room.roundIndex = 0;
+      room.explainerQueue = [];
+      room.guesserQueue = [];
       room.usedWords = [];
       room.players = room.players.map((player) => ({ ...player, score: 0 }));
     }
@@ -298,7 +304,7 @@ export class RoomManager {
     return room;
   }
 
-  triggerMine(roomId: string, socketId: string, mineWord: string): Room {
+  triggerMine(roomId: string, socketId: string, mineWord: string, triggered: boolean): Room {
     const room = this.getRoom(roomId);
     this.assertCanMarkMine(room, socketId);
     const round = this.requireRound(room);
@@ -307,13 +313,14 @@ export class RoomManager {
     if (!mine) {
       throw new GameError("Мина не найдена");
     }
-    if (round.triggeredMines.some((candidate) => candidate.word === mine.word)) {
-      round.triggeredMines = round.triggeredMines.filter((candidate) => candidate.word !== mine.word);
-      round.resultMine = round.triggeredMines.at(-1);
-    } else {
+    const alreadyTriggered = round.triggeredMines.some((candidate) => candidate.word === mine.word);
+    if (triggered && !alreadyTriggered) {
       round.triggeredMines.push(mine);
-      round.resultMine = mine;
     }
+    if (!triggered && alreadyTriggered) {
+      round.triggeredMines = round.triggeredMines.filter((candidate) => candidate.word !== mine.word);
+    }
+    round.resultMine = round.triggeredMines.at(-1);
     return room;
   }
 
@@ -350,6 +357,8 @@ export class RoomManager {
     room.phase = "lobby";
     room.currentRound = undefined;
     room.roundIndex = 0;
+    room.explainerQueue = [];
+    room.guesserQueue = [];
     room.usedWords = [];
     room.players = room.players.map((player) => ({ ...player, score: 0 }));
     return room;
@@ -403,14 +412,13 @@ export class RoomManager {
   }
 
   private createRound(room: Room): void {
-    const explainerIndex = room.roundIndex % room.players.length;
-    const guesserIndex = (explainerIndex + 1) % room.players.length;
+    const { explainerId, guesserId } = this.pickRoundRoles(room);
     const word = this.pickWord(room);
 
     room.currentRound = {
       word,
-      explainerId: room.players[explainerIndex].id,
-      guesserId: room.players[guesserIndex].id,
+      explainerId,
+      guesserId,
       mines: [],
       durationSec: room.settings.mineSubmissionDurationSec,
       status: "waiting_mines",
@@ -420,6 +428,47 @@ export class RoomManager {
     this.startPhaseTimer(room.currentRound, room.settings.mineSubmissionDurationSec);
     room.phase = "mine_submission";
     room.roundIndex += 1;
+  }
+
+  private pickRoundRoles(room: Room): { explainerId: string; guesserId: string } {
+    const playerIds = room.players.map((player) => player.id);
+    room.explainerQueue = this.normalizeRoleQueue(room.explainerQueue, playerIds);
+    if (room.explainerQueue.length === 0) {
+      room.explainerQueue = shuffle(playerIds);
+    }
+
+    const explainerId = room.explainerQueue.shift();
+    if (!explainerId) {
+      throw new GameError("Нет игроков для раунда");
+    }
+
+    const guesserCandidates = playerIds.filter((playerId) => playerId !== explainerId);
+    room.guesserQueue = this.normalizeRoleQueue(room.guesserQueue, guesserCandidates);
+    if (room.guesserQueue.length === 0) {
+      room.guesserQueue = shuffle(guesserCandidates);
+    }
+
+    let guesserId = room.guesserQueue.shift();
+    if (!guesserId || guesserId === explainerId) {
+      guesserId = guesserCandidates[Math.floor(Math.random() * guesserCandidates.length)];
+    }
+    if (!guesserId) {
+      throw new GameError("Нет отгадывающего для раунда");
+    }
+
+    return { explainerId, guesserId };
+  }
+
+  private normalizeRoleQueue(queue: string[], playerIds: string[]): string[] {
+    const activeIds = new Set(playerIds);
+    const seen = new Set<string>();
+    return queue.filter((playerId) => {
+      if (!activeIds.has(playerId) || seen.has(playerId)) {
+        return false;
+      }
+      seen.add(playerId);
+      return true;
+    });
   }
 
   private pickWord(room: Room): string {
@@ -652,6 +701,15 @@ export class RoomManager {
 
 function normalizeMine(word: string): string {
   return word.trim().toLowerCase();
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function clampInt(value: unknown, fallback: number, min: number, max: number): number {

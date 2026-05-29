@@ -44,6 +44,8 @@ export type Room = {
   phase: RoomPhase;
   currentRound?: Round;
   roundIndex: number;
+  explainerQueue: string[];
+  guesserQueue: string[];
   usedWords: string[];
   customWords: string[];
   settings: {

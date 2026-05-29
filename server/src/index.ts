@@ -97,9 +97,9 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("round:mine", ({ roomId, mineWord }: { roomId: string; mineWord: string }) => {
+  socket.on("round:mine", ({ roomId, mineWord, triggered }: { roomId: string; mineWord: string; triggered?: boolean }) => {
     handle(socket.id, () => {
-      emitRoom(rooms.triggerMine(roomId, socket.id, mineWord));
+      emitRoom(rooms.triggerMine(roomId, socket.id, mineWord, triggered !== false));
     });
   });
 

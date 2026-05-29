@@ -258,7 +258,7 @@ function App() {
           </div>
           <div className="players">
             {room.players.map((player) => (
-              <div className="player-row" key={player.id}>
+              <div className={getPlayerRowClassName(player, round, room.selfId)} key={player.id}>
                 <div>
                   <strong className="player-name">
                     {player.name}
@@ -590,8 +590,8 @@ function MineSubmission({
     <div className="stage">
       <p className="eyebrow">Раунд {room.roundIndex}</p>
       <div className="timer">{secondsLeft}</div>
-      <h2>{round.word ?? "Слово скрыто"}</h2>
       <RoleLine round={round} selfId={room.selfId} />
+      <TargetWord word={round.word} hiddenLabel="Слово скрыто" />
 
       {isExplainer ? (
         <div className={allMinesSubmitted ? "notice ready-notice" : "notice"}>
@@ -663,8 +663,8 @@ function Explaining({
     <div className="stage">
       <p className="eyebrow">Объяснение</p>
       <div className="timer">{secondsLeft}</div>
-      {isExplainer ? <h2>{round.word}</h2> : <h2>{isGuesser ? "Угадывайте слово" : round.word}</h2>}
       <RoleLine round={round} selfId={room.selfId} />
+      <TargetWord word={isExplainer || isMiner ? round.word : undefined} hiddenLabel="Угадывайте слово" />
       <p className="notice">Мин в раунде: {round.mineCount}</p>
 
       {round.mines && (
@@ -894,17 +894,15 @@ function MineChip({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(mine.word);
-  const [pendingTriggered, setPendingTriggered] = useState(false);
-  const [pendingCleared, setPendingCleared] = useState(false);
-  const effectiveTriggered = Boolean((isTriggered || pendingTriggered) && !pendingCleared);
+  const [pendingTriggered, setPendingTriggered] = useState<boolean | null>(null);
+  const effectiveTriggered = pendingTriggered ?? Boolean(isTriggered);
 
   useEffect(() => {
     setDraft(mine.word);
   }, [mine.word]);
 
   useEffect(() => {
-    setPendingTriggered(false);
-    setPendingCleared(false);
+    setPendingTriggered(null);
   }, [isTriggered]);
 
   function saveEdit() {
@@ -949,14 +947,9 @@ function MineChip({
         disabled={!clickable}
         onClick={() => {
           if (!clickable) return;
-          if (effectiveTriggered) {
-            setPendingCleared(true);
-            setPendingTriggered(false);
-          } else {
-            setPendingTriggered(true);
-            setPendingCleared(false);
-          }
-          socket.emit("round:mine", { roomId, mineWord: mine.word });
+          const nextTriggered = !effectiveTriggered;
+          setPendingTriggered(nextTriggered);
+          socket.emit("round:mine", { roomId, mineWord: mine.word, triggered: nextTriggered });
         }}
       >
         {mine.word}
@@ -979,10 +972,41 @@ function RoleLine({ round, selfId }: { round: NonNullable<RoomSnapshot["currentR
   const guesserLabel = round.guesserId === selfId ? "Угадываете" : "Угадывает";
 
   return (
-    <p className="muted">
-      {explainerLabel}: <strong>{explainerName}</strong>. {guesserLabel}: <strong>{guesserName}</strong>.
-    </p>
+    <div className="role-banner">
+      <div className="role-pill role-pill-explainer">
+        <span>{explainerLabel}</span>
+        <strong>{explainerName}</strong>
+      </div>
+      <div className="role-pill role-pill-guesser">
+        <span>{guesserLabel}</span>
+        <strong>{guesserName}</strong>
+      </div>
+    </div>
   );
+}
+
+function TargetWord({ word, hiddenLabel }: { word?: string; hiddenLabel: string }) {
+  return (
+    <div className={word ? "target-word" : "target-word target-word-hidden"}>
+      <span>Слово</span>
+      <h2>{word ?? hiddenLabel}</h2>
+    </div>
+  );
+}
+
+function getPlayerRowClassName(
+  player: Player,
+  round: RoomSnapshot["currentRound"],
+  selfId: string,
+): string {
+  return [
+    "player-row",
+    player.id === selfId ? "self" : "",
+    player.id === round?.explainerId ? "role-explainer" : "",
+    player.id === round?.guesserId ? "role-guesser" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function useCountdown(round: NonNullable<RoomSnapshot["currentRound"]>) {
