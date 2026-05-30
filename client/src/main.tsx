@@ -131,6 +131,7 @@ function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [serverTimer, setServerTimer] = useState<TimerSnapshot | null>(null);
   const autoJoinAttemptedRef = useRef(false);
+  const savedPlayerNameRef = useRef(localStorage.getItem("playerName") ?? "");
   const lastRoundAlertRef = useRef<string | null>(null);
   const lastRoundAlertAtRef = useRef(0);
   const previousPresenceRef = useRef<Map<string, boolean> | null>(null);
@@ -302,12 +303,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (room || autoJoinAttemptedRef.current || !roomIdFromUrl || !playerName.trim()) {
+    const savedPlayerName = savedPlayerNameRef.current.trim();
+    if (room || autoJoinAttemptedRef.current || !roomIdFromUrl || !savedPlayerName) {
       return;
     }
     autoJoinAttemptedRef.current = true;
-    socket.emit("room:join", { roomId: roomIdFromUrl, playerName, playerToken });
-  }, [playerName, room, roomIdFromUrl]);
+    socket.emit("room:join", { roomId: roomIdFromUrl, playerName: savedPlayerName, playerToken });
+  }, [room, roomIdFromUrl]);
 
   useEffect(() => {
     if (!room) {
