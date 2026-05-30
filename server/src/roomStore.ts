@@ -2,6 +2,7 @@ import type { Room } from "./types.js";
 
 const ROOM_IDS_KEY = "slova-miny:roomIds";
 const ROOM_KEY_PREFIX = "slova-miny:room:";
+const ROOM_TTL_SECONDS = 72 * 60 * 60;
 
 type RedisResponse<T> = {
   result?: T;
@@ -21,7 +22,7 @@ export class RoomStore {
       return;
     }
 
-    await this.command(["SET", this.roomKey(room.id), JSON.stringify(room)]);
+    await this.command(["SET", this.roomKey(room.id), JSON.stringify(room), "EX", ROOM_TTL_SECONDS]);
     await this.command(["SADD", ROOM_IDS_KEY, room.id]);
   }
 
@@ -45,6 +46,10 @@ export class RoomStore {
 
     const roomIds = (await this.command<string[]>(["SMEMBERS", ROOM_IDS_KEY])) ?? [];
     const rooms = await Promise.all(roomIds.map((roomId) => this.getRoom(roomId)));
+    const expiredRoomIds = roomIds.filter((_roomId, index) => !rooms[index]);
+    if (expiredRoomIds.length > 0) {
+      await this.command(["SREM", ROOM_IDS_KEY, ...expiredRoomIds]);
+    }
     return rooms.filter((room): room is Room => Boolean(room));
   }
 
