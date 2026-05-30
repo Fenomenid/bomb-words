@@ -8,6 +8,7 @@ const socketUrl = import.meta.env.VITE_SERVER_URL ?? (import.meta.env.DEV ? "htt
 const socket = io(socketUrl);
 const HEARTBEAT_INTERVAL_MS = 4 * 60_000;
 const playerToken = getOrCreatePlayerToken();
+let sharedAudioContext: AudioContext | null = null;
 
 type Player = {
   id: string;
@@ -172,6 +173,23 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem("soundEnabled", String(soundEnabled));
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    if (!soundEnabled) {
+      return;
+    }
+
+    function unlockAudio() {
+      void resumeAudioContext();
+    }
+
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
   }, [soundEnabled]);
 
   useEffect(() => {
@@ -417,6 +435,7 @@ function App() {
             <MineSubmission
               room={room}
               isExplainer={isExplainer}
+              isGuesser={isGuesser}
               isHost={isHost}
               syncedTimer={syncedTimer}
               mineWord={mineWord}
@@ -704,6 +723,7 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
 function MineSubmission({
   room,
   isExplainer,
+  isGuesser,
   isHost,
   syncedTimer,
   mineWord,
@@ -712,6 +732,7 @@ function MineSubmission({
 }: {
   room: RoomSnapshot;
   isExplainer: boolean;
+  isGuesser: boolean;
   isHost: boolean;
   syncedTimer?: TimerSnapshot;
   mineWord: string;
@@ -750,9 +771,16 @@ function MineSubmission({
         <div className="mine-progress-panel">
           <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
           <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
+          {isGuesser && (
+            <button className="danger" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
+              <Siren size={18} />
+              Сдаться
+            </button>
+          )}
         </div>
       ) : (
         <>
+          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
           <form className="mine-form" onSubmit={addMine}>
             <label className="field">
               <span>Мина</span>
@@ -768,7 +796,6 @@ function MineSubmission({
               Добавить
             </button>
           </form>
-          <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
           <MineList mines={round.mines ?? []} editable roomId={room.id} selfId={room.selfId} />
         </>
       )}
@@ -1288,81 +1315,101 @@ function useTimerWarning(secondsLeft: number, phase: RoomSnapshot["phase"], isPa
 }
 
 function playTimerTick(secondsLeft: number) {
-  const AudioContextClass =
-    window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextClass) {
-    return;
-  }
+  withAudioContext((audioContext) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    const now = audioContext.currentTime;
+    const urgent = secondsLeft <= 3;
+    const frequency = urgent ? 660 + (3 - secondsLeft) * 70 : 440;
+    const duration = urgent ? 0.16 : 0.12;
 
-  const audioContext = new AudioContextClass();
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  const filter = audioContext.createBiquadFilter();
-  const now = audioContext.currentTime;
-  const urgent = secondsLeft <= 3;
-  const frequency = urgent ? 660 + (3 - secondsLeft) * 70 : 440;
-  const duration = urgent ? 0.16 : 0.12;
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.82, now + duration);
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1400, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(urgent ? 0.12 : 0.075, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(frequency, now);
-  oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.82, now + duration);
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(1400, now);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(urgent ? 0.12 : 0.075, now + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-  oscillator.connect(filter);
-  filter.connect(gain);
-  gain.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration + 0.02);
-  window.setTimeout(() => void audioContext.close(), 240);
+    oscillator.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + duration + 0.02);
+  });
 }
 
 function playRoundStartAlert() {
+  withAudioContext((audioContext) => {
+    const masterGain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    const now = audioContext.currentTime;
+    const notes = [
+      { frequency: 523.25, start: 0, duration: 0.16 },
+      { frequency: 659.25, start: 0.18, duration: 0.2 },
+    ];
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1800, now);
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.1, now + 0.02);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+    filter.connect(masterGain);
+    masterGain.connect(audioContext.destination);
+
+    for (const note of notes) {
+      const oscillator = audioContext.createOscillator();
+      const noteGain = audioContext.createGain();
+      const startAt = now + note.start;
+      const stopAt = startAt + note.duration;
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(note.frequency, startAt);
+      oscillator.frequency.exponentialRampToValueAtTime(note.frequency * 0.96, stopAt);
+      noteGain.gain.setValueAtTime(0.0001, startAt);
+      noteGain.gain.exponentialRampToValueAtTime(0.9, startAt + 0.018);
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+      oscillator.connect(noteGain);
+      noteGain.connect(filter);
+      oscillator.start(startAt);
+      oscillator.stop(stopAt + 0.03);
+    }
+  });
+}
+
+function getAudioContext(): AudioContext | undefined {
   const AudioContextClass =
     window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) {
+    return undefined;
+  }
+
+  sharedAudioContext ??= new AudioContextClass();
+  return sharedAudioContext;
+}
+
+async function resumeAudioContext(): Promise<AudioContext | undefined> {
+  const audioContext = getAudioContext();
+  if (audioContext?.state === "suspended") {
+    await audioContext.resume().catch(() => undefined);
+  }
+  return audioContext;
+}
+
+function withAudioContext(callback: (audioContext: AudioContext) => void): void {
+  const audioContext = getAudioContext();
+  if (!audioContext) {
     return;
   }
 
-  const audioContext = new AudioContextClass();
-  const masterGain = audioContext.createGain();
-  const filter = audioContext.createBiquadFilter();
-  const now = audioContext.currentTime;
-  const notes = [
-    { frequency: 523.25, start: 0, duration: 0.16 },
-    { frequency: 659.25, start: 0.18, duration: 0.2 },
-  ];
-
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(1800, now);
-  masterGain.gain.setValueAtTime(0.0001, now);
-  masterGain.gain.exponentialRampToValueAtTime(0.1, now + 0.02);
-  masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
-  filter.connect(masterGain);
-  masterGain.connect(audioContext.destination);
-
-  for (const note of notes) {
-    const oscillator = audioContext.createOscillator();
-    const noteGain = audioContext.createGain();
-    const startAt = now + note.start;
-    const stopAt = startAt + note.duration;
-
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(note.frequency, startAt);
-    oscillator.frequency.exponentialRampToValueAtTime(note.frequency * 0.96, stopAt);
-    noteGain.gain.setValueAtTime(0.0001, startAt);
-    noteGain.gain.exponentialRampToValueAtTime(0.9, startAt + 0.018);
-    noteGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
-    oscillator.connect(noteGain);
-    noteGain.connect(filter);
-    oscillator.start(startAt);
-    oscillator.stop(stopAt + 0.03);
+  if (audioContext.state === "suspended") {
+    void audioContext.resume().then(() => callback(audioContext)).catch(() => undefined);
+    return;
   }
 
-  window.setTimeout(() => void audioContext.close(), 620);
+  callback(audioContext);
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

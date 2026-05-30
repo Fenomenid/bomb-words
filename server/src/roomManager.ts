@@ -667,15 +667,19 @@ export class RoomManager {
 
   private assertCanControlActiveRound(room: Room, socketId: string): void {
     const round = this.requireRound(room);
-    if (room.phase !== "explaining" || round.status !== "active") {
+    const canGuesserSkipBeforeExplaining =
+      room.phase === "mine_submission" && round.status === "waiting_mines" && socketId === round.guesserId;
+    const canRoleSkipDuringExplaining =
+      room.phase === "explaining" &&
+      round.status === "active" &&
+      (socketId === round.guesserId || socketId === round.explainerId);
+
+    if (!canGuesserSkipBeforeExplaining && !canRoleSkipDuringExplaining) {
       throw new GameError("Раунд сейчас не активен");
     }
     const player = room.players.find((candidate) => candidate.id === socketId);
     if (!player) {
       throw new GameError("Игрок не найден");
-    }
-    if (player.id !== round.guesserId && player.id !== round.explainerId) {
-      throw new GameError("Раунд как неугаданный отмечают объясняющий или отгадывающий");
     }
   }
 
