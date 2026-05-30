@@ -133,6 +133,7 @@ function App() {
   const autoJoinAttemptedRef = useRef(false);
   const lastRoundAlertRef = useRef<string | null>(null);
   const lastRoundAlertAtRef = useRef(0);
+  const previousPresenceRef = useRef<Map<string, boolean> | null>(null);
   const [error, setError] = useState("");
   const [playerName, setPlayerName] = useState(localStorage.getItem("playerName") ?? "");
   const [mineWord, setMineWord] = useState("");
@@ -171,6 +172,12 @@ function App() {
   const isGuesser = Boolean(round && room?.selfId === round.guesserId);
   const hasEnoughCustomWords = Boolean(room && (room.settings.difficulty !== "custom" || room.customWordCount >= 10));
   const canStartGame = Boolean(room && isHost && connectedPlayersCount >= 3 && hasEnoughCustomWords);
+  const presenceSignature = room
+    ? room.players
+        .map((player) => `${player.id}:${player.isConnected}`)
+        .sort()
+        .join("|")
+    : "";
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -199,11 +206,14 @@ function App() {
   }, [soundEnabled]);
 
   useEffect(() => {
-    if (!room?.currentRound || room.phase !== "mine_submission") {
+    if (
+      !room?.currentRound ||
+      !["mine_submission", "explaining", "round_result", "game_result"].includes(room.phase)
+    ) {
       return;
     }
 
-    const roundAlertKey = `${room.id}:${room.roundIndex}:${room.currentRound.explainerId}:${room.currentRound.guesserId}`;
+    const roundAlertKey = `${room.id}:${room.roundIndex}:${room.phase}:${room.currentRound.explainerId}:${room.currentRound.guesserId}`;
     if (lastRoundAlertRef.current === roundAlertKey) {
       return;
     }
@@ -217,6 +227,42 @@ function App() {
       playRoundStartAlert();
     }
   }, [room?.id, room?.roundIndex, room?.phase, room?.currentRound?.explainerId, room?.currentRound?.guesserId, soundEnabled]);
+
+  useEffect(() => {
+    if (!room) {
+      previousPresenceRef.current = null;
+      return;
+    }
+
+    const currentPresence = new Map(room.players.map((player) => [player.id, player.isConnected]));
+    const previousPresence = previousPresenceRef.current;
+    previousPresenceRef.current = currentPresence;
+
+    if (!previousPresence || !soundEnabled) {
+      return;
+    }
+
+    let hasJoin = false;
+    let hasLeave = false;
+    for (const [playerId, isConnected] of currentPresence) {
+      const wasConnected = previousPresence.get(playerId);
+      if (playerId !== room.selfId && isConnected && wasConnected !== true) {
+        hasJoin = true;
+      }
+    }
+    for (const [playerId, wasConnected] of previousPresence) {
+      const isConnected = currentPresence.get(playerId);
+      if (playerId !== room.selfId && wasConnected && isConnected !== true) {
+        hasLeave = true;
+      }
+    }
+
+    if (hasJoin) {
+      playPresenceAlert("join");
+    } else if (hasLeave) {
+      playPresenceAlert("leave");
+    }
+  }, [room?.id, room?.selfId, presenceSignature, soundEnabled]);
 
   useEffect(() => {
     socket.on("room", (snapshot: RoomSnapshot) => {
@@ -455,6 +501,7 @@ function App() {
               isExplainer={isExplainer}
               isGuesser={isGuesser}
               isHost={isHost}
+              onRoundStartAction={playRoundStartFromAction}
               syncedTimer={syncedTimer}
               mineWord={mineWord}
               setMineWord={setMineWord}
@@ -463,7 +510,15 @@ function App() {
           )}
 
           {room.phase === "explaining" && round && (
-            <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} syncedTimer={syncedTimer} />
+            <Explaining
+              room={room}
+              isExplainer={isExplainer}
+              isGuesser={isGuesser}
+              isHost={isHost}
+              onRoundStartAction={playRoundStartFromAction}
+              soundEnabled={soundEnabled}
+              syncedTimer={syncedTimer}
+            />
           )}
 
           {room.phase === "round_result" && round && (
@@ -762,6 +817,7 @@ function MineSubmission({
   isExplainer,
   isGuesser,
   isHost,
+  onRoundStartAction,
   syncedTimer,
   mineWord,
   setMineWord,
@@ -771,6 +827,7 @@ function MineSubmission({
   isExplainer: boolean;
   isGuesser: boolean;
   isHost: boolean;
+  onRoundStartAction: () => void;
   syncedTimer?: TimerSnapshot;
   mineWord: string;
   setMineWord: (value: string) => void;
@@ -809,7 +866,13 @@ function MineSubmission({
           <p className="notice">Минеры придумывают мины. Вам видно только количество мин: {round.mineCount}.</p>
           <MineProgress filled={round.mineCount} total={totalMineSlots} entries={round.mineProgress} />
           {isGuesser && (
-            <button className="danger" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
+            <button
+              className="danger"
+              onClick={() => {
+                onRoundStartAction();
+                socket.emit("round:skip", { roomId: room.id });
+              }}
+            >
               <Siren size={18} />
               Сдаться
             </button>
@@ -838,7 +901,14 @@ function MineSubmission({
       )}
 
       {isExplainer && (
-        <button className="primary" disabled={round.mineCount === 0} onClick={() => socket.emit("round:start", { roomId: room.id })}>
+        <button
+          className="primary"
+          disabled={round.mineCount === 0}
+          onClick={() => {
+            onRoundStartAction();
+            socket.emit("round:start", { roomId: room.id });
+          }}
+        >
           <Timer size={18} />
           Начать объяснение
         </button>
@@ -852,6 +922,7 @@ function Explaining({
   isExplainer,
   isGuesser,
   isHost,
+  onRoundStartAction,
   soundEnabled,
   syncedTimer,
 }: {
@@ -859,6 +930,7 @@ function Explaining({
   isExplainer: boolean;
   isGuesser: boolean;
   isHost: boolean;
+  onRoundStartAction: () => void;
   soundEnabled: boolean;
   syncedTimer?: TimerSnapshot;
 }) {
@@ -897,14 +969,26 @@ function Explaining({
 
       <div className="actions">
         {canConfirmSuccess && (
-          <button className="success" onClick={() => socket.emit("round:success", { roomId: room.id })}>
+          <button
+            className="success"
+            onClick={() => {
+              onRoundStartAction();
+              socket.emit("round:success", { roomId: room.id });
+            }}
+          >
             <Check size={18} />
             Угадали
           </button>
         )}
         {canSkip && (
           <>
-            <button className="danger" onClick={() => socket.emit("round:skip", { roomId: room.id })}>
+            <button
+              className="danger"
+              onClick={() => {
+                onRoundStartAction();
+                socket.emit("round:skip", { roomId: room.id });
+              }}
+            >
               <Siren size={18} />
               {skipLabel}
             </button>
@@ -1423,6 +1507,49 @@ function playRoundStartAlert() {
       oscillator.frequency.exponentialRampToValueAtTime(note.frequency * 0.96, stopAt);
       noteGain.gain.setValueAtTime(0.0001, startAt);
       noteGain.gain.exponentialRampToValueAtTime(0.9, startAt + 0.018);
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+      oscillator.connect(noteGain);
+      noteGain.connect(filter);
+      oscillator.start(startAt);
+      oscillator.stop(stopAt + 0.03);
+    }
+  });
+}
+
+function playPresenceAlert(kind: "join" | "leave") {
+  withAudioContext((audioContext) => {
+    const masterGain = audioContext.createGain();
+    const filter = audioContext.createBiquadFilter();
+    const now = audioContext.currentTime;
+    const notes =
+      kind === "join"
+        ? [
+            { frequency: 392, start: 0, duration: 0.11 },
+            { frequency: 523.25, start: 0.12, duration: 0.14 },
+          ]
+        : [
+            { frequency: 523.25, start: 0, duration: 0.11 },
+            { frequency: 392, start: 0.12, duration: 0.16 },
+          ];
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1600, now);
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.07, now + 0.018);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+    filter.connect(masterGain);
+    masterGain.connect(audioContext.destination);
+
+    for (const note of notes) {
+      const oscillator = audioContext.createOscillator();
+      const noteGain = audioContext.createGain();
+      const startAt = now + note.start;
+      const stopAt = startAt + note.duration;
+
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(note.frequency, startAt);
+      noteGain.gain.setValueAtTime(0.0001, startAt);
+      noteGain.gain.exponentialRampToValueAtTime(0.65, startAt + 0.014);
       noteGain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
       oscillator.connect(noteGain);
       noteGain.connect(filter);
