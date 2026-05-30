@@ -99,6 +99,14 @@ type SettingsDraft = {
   resultDurationSec: string;
 };
 
+type ConfirmDialogState = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  tone?: "danger" | "primary";
+  onConfirm: () => void;
+};
+
 function settingsToDraft(settings: RoomSnapshot["settings"]): SettingsDraft {
   return {
     targetScore: String(settings.targetScore),
@@ -140,6 +148,7 @@ function App() {
   const [mineWord, setMineWord] = useState("");
   const [copied, setCopied] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem("soundEnabled") !== "false");
   const [theme, setTheme] = useState<"light" | "dark">(
     () => (localStorage.getItem("theme") === "dark" ? "dark" : "light"),
@@ -365,6 +374,28 @@ function App() {
     setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
   }
 
+  function requestKickPlayer(player: Player) {
+    if (!room) return;
+    setConfirmDialog({
+      title: "Кикнуть игрока?",
+      message: `${player.name} выйдет из комнаты. Игру можно будет продолжить без него.`,
+      confirmLabel: "Кикнуть",
+      tone: "danger",
+      onConfirm: () => socket.emit("player:kick", { roomId: room.id, playerId: player.id }),
+    });
+  }
+
+  function requestResetGame() {
+    if (!room) return;
+    setConfirmDialog({
+      title: "Сбросить игру?",
+      message: "Все вернутся в лобби, очки и текущий раунд сбросятся. Настройки комнаты можно будет поменять перед новой игрой.",
+      confirmLabel: "Сбросить",
+      tone: "danger",
+      onConfirm: () => socket.emit("game:reset", { roomId: room.id }),
+    });
+  }
+
   if (!room) {
     return (
       <main className="page auth-page">
@@ -378,10 +409,16 @@ function App() {
             <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Например, Аня" />
           </label>
           {roomIdFromUrl ? (
-            <button className="primary" onClick={joinRoom}>
-              <LogIn size={18} />
-              Войти в комнату {roomIdFromUrl}
-            </button>
+            <>
+              <button className="primary" onClick={joinRoom}>
+                <LogIn size={18} />
+                Войти в комнату {roomIdFromUrl}
+              </button>
+              <button className="secondary" onClick={createRoom}>
+                <Plus size={18} />
+                Создать новую комнату
+              </button>
+            </>
           ) : (
             <button className="primary" onClick={createRoom}>
               <Plus size={18} />
@@ -437,6 +474,12 @@ function App() {
             <HelpCircle size={18} />
             Правила
           </button>
+          {isHost && round && room.phase !== "game_result" && (
+            <button className="secondary icon-text" onClick={requestResetGame}>
+              <RotateCcw size={18} />
+              Сбросить
+            </button>
+          )}
         </div>
       </header>
 
@@ -477,13 +520,9 @@ function App() {
                       type="button"
                       aria-label={`Кикнуть ${player.name}`}
                       title="Кикнуть игрока"
-                      onClick={() => {
-                        if (window.confirm(`Кикнуть игрока ${player.name}?`)) {
-                          socket.emit("player:kick", { roomId: room.id, playerId: player.id });
-                        }
-                      }}
+                      onClick={() => requestKickPlayer(player)}
                     >
-                      <UserMinus size={13} />
+                      <UserMinus size={11} />
                     </button>
                   )}
                 </div>
@@ -530,6 +569,7 @@ function App() {
         </section>
       </div>
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+      {confirmDialog && <ConfirmModal dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />}
     </main>
   );
 }
@@ -964,6 +1004,7 @@ function Explaining({
         <MineList
           mines={round.mines}
           clickable={isMiner}
+          grouped={isMiner}
           roomId={room.id}
           triggeredWords={(round.triggeredMines ?? []).map((mine) => mine.word)}
         />
@@ -1146,9 +1187,58 @@ function TimerControls({ room }: { room: RoomSnapshot }) {
   );
 }
 
+function ConfirmModal({ dialog, onClose }: { dialog: ConfirmDialogState; onClose: () => void }) {
+  function confirm() {
+    dialog.onConfirm();
+    onClose();
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={dialog.title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <section className="confirm-modal">
+        <div className="modal-title">
+          <h2>{dialog.title}</h2>
+          <button className="icon-button" type="button" aria-label="Закрыть" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <p className="muted">{dialog.message}</p>
+        <div className="actions confirm-actions">
+          <button className="secondary" type="button" onClick={onClose}>
+            Отмена
+          </button>
+          <button className={dialog.tone === "danger" ? "danger" : "primary"} type="button" onClick={confirm}>
+            {dialog.confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function RulesModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Правила игры">
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Правила игры"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <section className="rules-modal">
         <div className="modal-title">
           <h2>Правила</h2>
@@ -1205,6 +1295,7 @@ function MineList({
   mines,
   clickable,
   editable,
+  grouped,
   roomId,
   selfId,
   triggeredWords = [],
@@ -1212,12 +1303,48 @@ function MineList({
   mines: Mine[];
   clickable?: boolean;
   editable?: boolean;
+  grouped?: boolean;
   roomId?: string;
   selfId?: string;
   triggeredWords?: string[];
 }) {
   if (mines.length === 0) {
     return <p className="muted">Мин пока нет.</p>;
+  }
+
+  if (grouped) {
+    const groupedMines = mines.reduce<Array<{ playerId: string; playerName: string; mines: Mine[] }>>((groups, mine) => {
+      const existingGroup = groups.find((group) => group.playerId === mine.authorPlayerId);
+      if (existingGroup) {
+        existingGroup.mines.push(mine);
+        return groups;
+      }
+      groups.push({ playerId: mine.authorPlayerId, playerName: mine.authorName, mines: [mine] });
+      return groups;
+    }, []);
+
+    return (
+      <div className="miner-mine-groups">
+        {groupedMines.map((group) => (
+          <section className="miner-mine-group" key={group.playerId}>
+            <h3>{group.playerName}</h3>
+            <div className="mine-list">
+              {group.mines.map((mine) => (
+                <MineChip
+                  key={`${mine.word}-${mine.authorPlayerId}`}
+                  mine={mine}
+                  clickable={clickable}
+                  editable={editable && mine.authorPlayerId === selfId}
+                  roomId={roomId}
+                  isTriggered={triggeredWords.includes(mine.word)}
+                  showAuthor={false}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -1284,16 +1411,20 @@ function MineChip({
   editable,
   roomId,
   isTriggered,
+  showAuthor = true,
 }: {
   mine: Mine;
   clickable?: boolean;
   editable?: boolean;
   roomId?: string;
   isTriggered?: boolean;
+  showAuthor?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(mine.word);
   const [pendingTriggered, setPendingTriggered] = useState<boolean | null>(null);
+  const [clickLocked, setClickLocked] = useState(false);
+  const lastClickAtRef = useRef(0);
   const effectiveTriggered = pendingTriggered ?? Boolean(isTriggered);
 
   useEffect(() => {
@@ -1343,16 +1474,21 @@ function MineChip({
     >
       <button
         className="mine-word"
-        disabled={!clickable}
+        disabled={!clickable || clickLocked}
         onClick={() => {
           if (!clickable) return;
+          const now = Date.now();
+          if (now - lastClickAtRef.current < 700) return;
+          lastClickAtRef.current = now;
           const nextTriggered = !effectiveTriggered;
           setPendingTriggered(nextTriggered);
+          setClickLocked(true);
+          window.setTimeout(() => setClickLocked(false), 700);
           socket.emit("round:mine", { roomId, mineWord: mine.word, triggered: nextTriggered });
         }}
       >
         {mine.word}
-        <span>{mine.authorName}</span>
+        {showAuthor && <span>{mine.authorName}</span>}
         {effectiveTriggered && (
           <b className="mine-trigger-icon" title="Сработала" aria-label="Сработала">
             <Bomb size={15} />

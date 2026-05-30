@@ -1,6 +1,6 @@
 :root {
-  color: #202633;
-  background: #eef1f4;
+  color: #2c2821;
+  background: #ded5c6;
   color-scheme: light;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -58,10 +58,10 @@ button:disabled {
 .auth-panel,
 .game-panel,
 .sidebar {
-  background: #f9faf9;
-  border: 1px solid #d7dde4;
+  background: #eee7da;
+  border: 1px solid #c9bca9;
   border-radius: 8px;
-  box-shadow: 0 14px 34px rgba(38, 48, 62, 0.07);
+  box-shadow: 0 14px 34px rgba(58, 48, 34, 0.1);
 }
 
 .auth-panel {
@@ -104,7 +104,7 @@ h2 {
 }
 
 .eyebrow {
-  color: #4e6773;
+  color: #6b604d;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0;
@@ -113,19 +113,19 @@ h2 {
 }
 
 .muted {
-  color: #697384;
+  color: #706754;
   line-height: 1.5;
 }
 
 .self-label {
-  color: #5f6979;
+  color: #706754;
   font-size: 14px;
   line-height: 1.4;
   margin-top: 8px;
 }
 
 .self-label strong {
-  color: #202633;
+  color: #2c2821;
 }
 
 .notice {
@@ -195,10 +195,11 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 78px;
   padding: 12px;
-  border: 1px solid #dce2e8;
+  border: 1px solid #cfc3b2;
   border-radius: 8px;
-  background: #f7f8f8;
+  background: #e7dfd1;
   overflow: hidden;
   transition:
     transform 160ms ease,
@@ -216,20 +217,20 @@ h2 {
 }
 
 .player-row.role-explainer {
-  border-color: #a9ccd7;
-  background: #edf5f7;
-  box-shadow: 0 8px 20px rgba(59, 105, 120, 0.1);
+  border-color: #91b4ad;
+  background: #dce8e3;
+  box-shadow: 0 8px 20px rgba(55, 93, 89, 0.12);
 }
 
 .player-row.role-explainer::before {
   opacity: 1;
-  background: #4d91a8;
+  background: #4f8c89;
 }
 
 .player-row.role-guesser {
-  border-color: #e0c887;
-  background: #f7f0df;
-  box-shadow: 0 8px 20px rgba(146, 105, 30, 0.1);
+  border-color: #c6a76b;
+  background: #eadfc7;
+  box-shadow: 0 8px 20px rgba(122, 87, 31, 0.12);
 }
 
 .player-row.role-guesser::before {
@@ -275,7 +276,7 @@ h2 {
 }
 
 .player-row span {
-  color: #697384;
+  color: #706754;
   font-size: 13px;
 }
 
@@ -286,20 +287,23 @@ h2 {
 }
 
 .player-row-actions {
-  display: inline-flex;
+  min-width: 64px;
+  display: inline-grid;
+  grid-template-columns: 34px 22px;
   align-items: center;
   gap: 8px;
+  justify-content: end;
 }
 
 .kick-button {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: inline-grid;
   place-items: center;
   border: 1px solid #f0c2ca;
   border-radius: 999px;
   color: #9b1c31;
-  background: #f7e8ec;
+  background: #ead9dc;
 }
 
 .kick-button:hover {
@@ -421,7 +425,7 @@ h2 {
 .field {
   display: grid;
   gap: 7px;
-  color: #4e5868;
+  color: #5d5546;
   font-weight: 700;
 }
 
@@ -429,19 +433,19 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #cbd3dc;
+  border: 1px solid #bfb3a3;
   border-radius: 8px;
   padding: 13px 14px;
-  color: #202633;
-  background: #fbfbfa;
+  color: #2c2821;
+  background: #f2ecdf;
   outline: none;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #5f93a7;
-  box-shadow: 0 0 0 3px rgba(95, 147, 167, 0.14);
+  border-color: #5c8f8b;
+  box-shadow: 0 0 0 3px rgba(92, 143, 139, 0.18);
 }
 
 textarea {
@@ -466,23 +470,23 @@ textarea {
 
 .primary {
   color: white;
-  background: #4d7f92;
+  background: #477f75;
 }
 
 .secondary {
-  color: #2d3a4c;
-  background: #e8ecef;
-  border: 1px solid #d2d9e0;
+  color: #3b342a;
+  background: #ded4c4;
+  border: 1px solid #c3b6a3;
 }
 
 .success {
   color: white;
-  background: #4f8765;
+  background: #557d4b;
 }
 
 .danger {
   color: white;
-  background: #a94152;
+  background: #9f4b4d;
 }
 
 .compact {
@@ -548,6 +552,31 @@ textarea {
   gap: 12px;
 }
 
+.miner-mine-groups {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.miner-mine-group {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #cfc3b2;
+  border-radius: 8px;
+  background: #e7dfd1;
+}
+
+.miner-mine-group h3 {
+  margin: 0;
+  color: #3b342a;
+  font-size: 15px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .mine-progress-panel {
   width: min(680px, 100%);
   display: grid;
@@ -558,9 +587,9 @@ textarea {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #d7dde4;
+  border: 1px solid #cfc3b2;
   border-radius: 8px;
-  background: #f5f6f6;
+  background: #e7dfd1;
 }
 
 .mine-progress-header {
@@ -568,13 +597,13 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: #4e5868;
+  color: #5d5546;
   font-size: 13px;
   font-weight: 800;
 }
 
 .mine-progress-header strong {
-  color: #202633;
+  color: #2c2821;
 }
 
 .miner-progress-list {
@@ -589,20 +618,20 @@ textarea {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid #dce2e8;
+  border: 1px solid #cfc3b2;
   border-radius: 8px;
-  background: #fbfbfa;
+  background: #f2ecdf;
 }
 
 .miner-progress-row span {
   min-width: 0;
-  color: #2d3a4c;
+  color: #3b342a;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 .miner-progress-row strong {
-  color: #4e5868;
+  color: #5d5546;
   font-size: 13px;
 }
 
@@ -616,10 +645,10 @@ textarea {
   height: 24px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid #d3dae1;
+  border: 1px solid #c3b6a3;
   border-radius: 999px;
   color: #9aa3af;
-  background: #eceff1;
+  background: #ded4c4;
   transition:
     transform 160ms ease,
     color 160ms ease,
@@ -630,9 +659,9 @@ textarea {
 
 .miner-slot.filled {
   color: #ffffff;
-  background: #4d7f92;
-  border-color: #4d7f92;
-  box-shadow: 0 0 0 3px rgba(77, 127, 146, 0.13);
+  background: #477f75;
+  border-color: #477f75;
+  box-shadow: 0 0 0 3px rgba(71, 127, 117, 0.16);
   animation: mine-slot-fill 220ms ease both;
 }
 
@@ -642,13 +671,13 @@ textarea {
   gap: 8px;
   max-width: 100%;
   padding: 6px;
-  border: 1px solid #cbd3dc;
+  border: 1px solid #bfb3a3;
   border-radius: 999px;
-  color: #2d3a4c;
-  background: #fbfbfa;
+  color: #3b342a;
+  background: #f2ecdf;
   font-weight: 800;
   overflow-wrap: anywhere;
-  box-shadow: 0 8px 18px rgba(38, 48, 62, 0.07);
+  box-shadow: 0 8px 18px rgba(58, 48, 34, 0.08);
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -901,18 +930,25 @@ textarea {
   background: rgba(10, 16, 25, 0.48);
 }
 
-.rules-modal {
-  width: min(620px, 100%);
-  max-height: min(720px, 92vh);
-  overflow: auto;
+.rules-modal,
+.confirm-modal {
   display: grid;
   gap: 16px;
   padding: 22px;
-  color: #202633;
-  background: #f9faf9;
-  border: 1px solid #d7dde4;
+  color: #2c2821;
+  background: #eee7da;
+  border: 1px solid #c9bca9;
   border-radius: 8px;
   box-shadow: 0 24px 60px rgba(10, 16, 25, 0.22);
+}
+
+.rules-modal {
+  width: min(860px, 100%);
+  overflow: visible;
+}
+
+.confirm-modal {
+  width: min(440px, 100%);
 }
 
 .modal-title {
@@ -924,9 +960,11 @@ textarea {
 
 .rules-list {
   display: grid;
-  gap: 16px;
-  color: #405168;
-  line-height: 1.5;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+  color: #554c3e;
+  font-size: 14px;
+  line-height: 1.42;
 }
 
 .rules-list section {
@@ -936,7 +974,7 @@ textarea {
 
 .rules-list h3 {
   margin: 0;
-  color: #18202f;
+  color: #2c2821;
   font-size: 16px;
 }
 
@@ -947,6 +985,10 @@ textarea {
 
 .rules-list li + li {
   margin-top: 5px;
+}
+
+.confirm-actions {
+  justify-content: flex-end;
 }
 
 :root[data-theme="dark"] .auth-panel,
@@ -1111,6 +1153,15 @@ textarea {
   border-color: #31435b;
 }
 
+:root[data-theme="dark"] .miner-mine-group {
+  background: #111a27;
+  border-color: #2a3a50;
+}
+
+:root[data-theme="dark"] .miner-mine-group h3 {
+  color: #e7edf6;
+}
+
 :root[data-theme="dark"] .miner-progress-row span {
   color: #e7edf6;
 }
@@ -1202,7 +1253,8 @@ textarea {
   border-color: #2a3a50;
 }
 
-:root[data-theme="dark"] .rules-modal {
+:root[data-theme="dark"] .rules-modal,
+:root[data-theme="dark"] .confirm-modal {
   color: #e7edf6;
   background: #151f2d;
   border-color: #2a3a50;
@@ -1340,6 +1392,14 @@ textarea {
 
   .podium {
     grid-template-columns: 1fr;
+  }
+
+  .rules-list {
+    grid-template-columns: 1fr;
+  }
+
+  .confirm-actions {
+    width: 100%;
   }
 
   .place-1,

@@ -6,6 +6,7 @@ const MIN_PLAYERS = 3;
 const MIN_CUSTOM_WORDS = 10;
 const MAX_CUSTOM_WORDS = 1000;
 const MAX_CUSTOM_WORD_LENGTH = 40;
+const MINE_TOGGLE_COOLDOWN_MS = 700;
 
 export class GameError extends Error {
   constructor(message: string) {
@@ -17,6 +18,7 @@ export class GameError extends Error {
 export class RoomManager {
   private rooms = new Map<string, Room>();
   private socketRooms = new Map<string, string>();
+  private mineToggleTimestamps = new Map<string, number>();
 
   hasRoom(roomId: string): boolean {
     return this.rooms.has(roomId.toUpperCase());
@@ -406,7 +408,20 @@ export class RoomManager {
     if (!mine) {
       throw new GameError("Мина не найдена");
     }
+
     const alreadyTriggered = round.triggeredMines.some((candidate) => candidate.word === mine.word);
+    if (triggered === alreadyTriggered) {
+      return room;
+    }
+
+    const toggleKey = `${room.id}:${normalized}`;
+    const now = Date.now();
+    const lastToggleAt = this.mineToggleTimestamps.get(toggleKey) ?? 0;
+    if (now - lastToggleAt < MINE_TOGGLE_COOLDOWN_MS) {
+      return room;
+    }
+    this.mineToggleTimestamps.set(toggleKey, now);
+
     if (triggered && !alreadyTriggered) {
       round.triggeredMines.push(mine);
     }
