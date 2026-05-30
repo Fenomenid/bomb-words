@@ -122,11 +122,17 @@ function getOrCreatePlayerToken(): string {
   return token;
 }
 
+function sendKeepAlive(roomId: string): void {
+  socket.emit("room:heartbeat", { roomId });
+  void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => undefined);
+}
+
 function App() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [serverTimer, setServerTimer] = useState<TimerSnapshot | null>(null);
   const autoJoinAttemptedRef = useRef(false);
   const lastRoundAlertRef = useRef<string | null>(null);
+  const lastRoundAlertAtRef = useRef(0);
   const [error, setError] = useState("");
   const [playerName, setPlayerName] = useState(localStorage.getItem("playerName") ?? "");
   const [mineWord, setMineWord] = useState("");
@@ -204,6 +210,10 @@ function App() {
 
     lastRoundAlertRef.current = roundAlertKey;
     if (soundEnabled) {
+      if (Date.now() - lastRoundAlertAtRef.current < 1500) {
+        return;
+      }
+      lastRoundAlertAtRef.current = Date.now();
       playRoundStartAlert();
     }
   }, [room?.id, room?.roundIndex, room?.phase, room?.currentRound?.explainerId, room?.currentRound?.guesserId, soundEnabled]);
@@ -258,9 +268,9 @@ function App() {
       return undefined;
     }
 
-    socket.emit("room:heartbeat", { roomId: room.id });
+    sendKeepAlive(room.id);
     const interval = window.setInterval(() => {
-      socket.emit("room:heartbeat", { roomId: room.id });
+      sendKeepAlive(room.id);
     }, HEARTBEAT_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
@@ -268,6 +278,14 @@ function App() {
 
   function rememberName() {
     localStorage.setItem("playerName", playerName.trim());
+  }
+
+  function playRoundStartFromAction() {
+    if (!soundEnabled) {
+      return;
+    }
+    lastRoundAlertAtRef.current = Date.now();
+    playRoundStartAlert();
   }
 
   function createRoom() {
@@ -428,7 +446,7 @@ function App() {
 
         <section className="game-panel">
           {room.phase === "lobby" && (
-            <Lobby canStartGame={canStartGame} isHost={isHost} room={room} />
+            <Lobby canStartGame={canStartGame} isHost={isHost} room={room} onRoundStartAction={playRoundStartFromAction} />
           )}
 
           {room.phase === "mine_submission" && round && (
@@ -448,7 +466,9 @@ function App() {
             <Explaining room={room} isExplainer={isExplainer} isGuesser={isGuesser} isHost={isHost} soundEnabled={soundEnabled} syncedTimer={syncedTimer} />
           )}
 
-          {room.phase === "round_result" && round && <RoundResult room={room} isHost={isHost} syncedTimer={syncedTimer} />}
+          {room.phase === "round_result" && round && (
+            <RoundResult room={room} isHost={isHost} syncedTimer={syncedTimer} onRoundStartAction={playRoundStartFromAction} />
+          )}
           {room.phase === "game_result" && <GameResult room={room} isHost={isHost} />}
         </section>
       </div>
@@ -457,7 +477,17 @@ function App() {
   );
 }
 
-function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boolean; canStartGame: boolean }) {
+function Lobby({
+  room,
+  isHost,
+  canStartGame,
+  onRoundStartAction,
+}: {
+  room: RoomSnapshot;
+  isHost: boolean;
+  canStartGame: boolean;
+  onRoundStartAction: () => void;
+}) {
   const [draftSettings, setDraftSettings] = useState(() => settingsToDraft(room.settings));
   const [customWordsText, setCustomWordsText] = useState(() => (room.customWords ?? []).join("\n"));
   const [customWordsSaveRequested, setCustomWordsSaveRequested] = useState(false);
@@ -708,7 +738,14 @@ function Lobby({ room, isHost, canStartGame }: { room: RoomSnapshot; isHost: boo
           {room.settings.difficulty === "custom" && room.customWordCount < 10 && (
             <p className="notice">Для старта со своим словарем нужно минимум 10 сохраненных слов.</p>
           )}
-          <button className="primary" disabled={!canStartGame} onClick={() => socket.emit("game:start", { roomId: room.id })}>
+          <button
+            className="primary"
+            disabled={!canStartGame}
+            onClick={() => {
+              onRoundStartAction();
+              socket.emit("game:start", { roomId: room.id });
+            }}
+          >
             <Flag size={18} />
             Начать игру
           </button>
@@ -878,7 +915,17 @@ function Explaining({
   );
 }
 
-function RoundResult({ room, isHost, syncedTimer }: { room: RoomSnapshot; isHost: boolean; syncedTimer?: TimerSnapshot }) {
+function RoundResult({
+  room,
+  isHost,
+  syncedTimer,
+  onRoundStartAction,
+}: {
+  room: RoomSnapshot;
+  isHost: boolean;
+  syncedTimer?: TimerSnapshot;
+  onRoundStartAction: () => void;
+}) {
   const round = room.currentRound!;
   const secondsLeft = useCountdown(round, syncedTimer);
   const hasTriggeredMines = (round.triggeredMines?.length ?? 0) > 0;
@@ -895,7 +942,13 @@ function RoundResult({ room, isHost, syncedTimer }: { room: RoomSnapshot; isHost
       <ScoreDeltaList deltas={round.scoreDeltas} />
       <MineList mines={round.mines ?? []} triggeredWords={(round.triggeredMines ?? []).map((mine) => mine.word)} />
       {isHost && (
-        <button className="primary" onClick={() => socket.emit("round:next", { roomId: room.id })}>
+        <button
+          className="primary"
+          onClick={() => {
+            onRoundStartAction();
+            socket.emit("round:next", { roomId: room.id });
+          }}
+        >
           <Flag size={18} />
           Следующий раунд
         </button>
